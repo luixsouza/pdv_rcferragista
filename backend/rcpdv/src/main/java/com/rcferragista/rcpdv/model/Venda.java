@@ -1,9 +1,11 @@
 package com.rcferragista.rcpdv.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -18,4 +20,8 @@ public class Venda {
 
     @Column(name = "total_venda")
     private BigDecimal totalVenda = BigDecimal.ZERO;
+
+    @OneToMany(mappedBy = "venda", fetch = FetchType.EAGER)
+    @JsonManagedReference
+    private List<ItemVenda> itens;
 }

@@ -9,6 +9,7 @@ import com.rcferragista.rcpdv.repository.ProdutoRepository;
 import com.rcferragista.rcpdv.repository.VendaRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +35,12 @@ public class PdvController {
     @GetMapping("/produtos")
     public List<Produto> listarProdutos() {
         return produtoRepository.findAll();
+    }
+
+    @GetMapping("/vendas")
+    public List<Venda> listarVendas() {
+        // Retorna ordenado por ID decrescente (mais recentes primeiro)
+        return vendaRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
     }
 
     // Busca inteligente: pelo nome ou código de barras
