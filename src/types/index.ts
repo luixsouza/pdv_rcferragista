@@ -41,5 +41,6 @@ export interface Sale {
   discount: number;
   total: number;
   paymentMethod: 'cash' | 'credit' | 'debit' | 'pix';
+  status?: 'completed' | 'refunded';
   createdAt: string;
 }

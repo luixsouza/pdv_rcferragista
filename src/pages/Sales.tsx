@@ -3,8 +3,9 @@ import { Layout } from '@/components/Layout';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Sale } from '@/types';
-import { History, Search, Eye, Calendar, Printer, Download } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Sale, Product } from '@/types';
+import { History, Search, Eye, Calendar, Printer, Download, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +15,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +39,9 @@ const paymentLabels = {
 };
 
 export default function Sales() {
-  const [sales] = useLocalStorage<Sale[]>('sales', []);
+  const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
+  const [products, setProducts] = useLocalStorage<Product[]>('products', []);
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
@@ -50,7 +64,37 @@ export default function Sales() {
 
   const totalToday = sales
     .filter(s => new Date(s.createdAt).toDateString() === new Date().toDateString())
+    .filter(s => s.status !== 'refunded')
     .reduce((sum, s) => sum + s.total, 0);
+
+  const handleRefund = (sale: Sale) => {
+    // Update products stock
+    const updatedProducts = products.map(product => {
+      const saleItem = sale.items.find(item => item.productId === product.id);
+      if (saleItem) {
+        return {
+          ...product,
+          stock: product.stock + saleItem.quantity
+        };
+      }
+      return product;
+    });
+
+    setProducts(updatedProducts);
+
+    // Update sale status
+    const updatedSales = sales.map(s => 
+      s.id === sale.id ? { ...s, status: 'refunded' as const } : s
+    );
+
+    setSales(updatedSales);
+    setSelectedSale(null);
+
+    toast({
+      title: "Venda estornada",
+      description: "O estoque foi atualizado e a venda marcada como estornada.",
+    });
+  };
 
   return (
     <Layout>
@@ -96,10 +140,17 @@ export default function Sales() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <p className="font-bold">{formatCurrency(sale.total)}</p>
-                      <Badge variant="secondary" className="mt-1">
-                        {paymentLabels[sale.paymentMethod]}
-                      </Badge>
+                      <p className={`font-bold ${sale.status === 'refunded' ? 'line-through text-muted-foreground' : ''}`}>
+                        {formatCurrency(sale.total)}
+                      </p>
+                      <div className="flex flex-col items-end gap-1 mt-1">
+                        {sale.status === 'refunded' && (
+                          <Badge variant="destructive" className="text-xs">Estornado</Badge>
+                        )}
+                        <Badge variant="secondary">
+                          {paymentLabels[sale.paymentMethod]}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => printReceipt(sale)} title="Imprimir">
@@ -170,7 +221,12 @@ export default function Sales() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Pagamento:</span>
-                  <Badge variant="secondary">{paymentLabels[selectedSale.paymentMethod]}</Badge>
+                  <div className="flex gap-2">
+                    {selectedSale.status === 'refunded' && (
+                      <Badge variant="destructive">Estornado</Badge>
+                    )}
+                    <Badge variant="secondary">{paymentLabels[selectedSale.paymentMethod]}</Badge>
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-4">
                   <Button variant="outline" className="flex-1" onClick={() => printReceipt(selectedSale)}>
@@ -182,6 +238,45 @@ export default function Sales() {
                     Baixar PDF
                   </Button>
                 </div>
+
+                {selectedSale.status !== 'refunded' && (
+                  <div className="pt-2 border-t mt-2">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full">
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          Estornar Venda
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-destructive" />
+                            Confirmar estorno
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja estornar esta venda?
+                            <br />
+                            • O valor de <strong>{formatCurrency(selectedSale.total)}</strong> será revertido.
+                            <br />
+                            • Os itens voltarão para o estoque.
+                            <br />
+                            • Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleRefund(selectedSale)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Confirmar Estorno
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
               </div>
             </div>
           )}
