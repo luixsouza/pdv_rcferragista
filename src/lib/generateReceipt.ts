@@ -21,24 +21,18 @@ export function generateReceipt(sale: Sale) {
   const margin = 5;
   // const contentWidth = pageWidth - margin * 2; // Variável não utilizada diretamente, mas útil para referência
   let y = 10;
-
-  // --- CABEÇALHO DA EMPRESA (Alterado) ---
   
   // Nome da Empresa
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('RC CASA&CONSTRUÇÃO', pageWidth / 2, y, { align: 'center' });
   y += 5;
-
-  // Dados da Empresa (Fonte menor)
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   
-  // CNPJ Formatado
   doc.text('CNPJ: 46.483.338/0001-42', pageWidth / 2, y, { align: 'center' });
   y += 4;
 
-  // Endereço (Quebrado em linhas para caber nos 80mm)
   doc.text('Rua Vicente Bueno, Nº 160', pageWidth / 2, y, { align: 'center' });
   y += 4;
   doc.text('Setor Paraíso - Inhumas, GO', pageWidth / 2, y, { align: 'center' });
@@ -46,11 +40,8 @@ export function generateReceipt(sale: Sale) {
   doc.text('CEP: 75400-896', pageWidth / 2, y, { align: 'center' });
   y += 4;
 
-  // Contato
   doc.text('Tel: (62) 99275-1884', pageWidth / 2, y, { align: 'center' });
   y += 6;
-
-  // --- FIM DO CABEÇALHO DA EMPRESA ---
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
