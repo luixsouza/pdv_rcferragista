@@ -37,20 +37,45 @@ import {
 import { toast } from 'sonner';
 
 const categories = [
+  // Ferramentas e Equipamentos
   'Ferramentas Manuais',
   'Ferramentas Elétricas',
+  'Acessórios p/ Ferramentas',
+  'Medição e Nivelamento',
+  'Solda e Maçaricos',
+
+  // Estrutural e Construção
+  'Construção Civil (Grosso)',
+  'Cimentos e Argamassas',
+  'Telhas e Calhas',
+  'Impermeabilizantes',
+  'Gesso e Drywall',
+  
+  // Fixação e Segurança
   'Parafusos e Fixadores',
-  'Tintas e Acessórios',
-  'Materiais Elétricos',
-  'Materiais Hidráulicos',
+  'Fechaduras e Cadeados',
   'EPI',
-  'Abrasivos',
-  'Colas e Adesivos',
-  'Construção Civil',
-  'Jardinagem',
-  'Automotivo',
+  'Segurança e Monitoramento',
+
+  // Instalações
+  'Materiais Elétricos',
   'Iluminação',
-  'Segurança',
+  'Automação Residencial',
+  'Materiais Hidráulicos',
+  'Louças e Metais',
+
+  // Acabamento e Decoração
+  'Pisos e Revestimentos',
+  'Tintas e Acessórios',
+  'Colas e Adesivos',
+  'Esquadrias (Portas e Janelas)',
+
+  // Diversos
+  'Abrasivos',
+  'Jardinagem e Agro',
+  'Utilidades Domésticas',
+  'Limpeza e Química',
+  'Automotivo',
   'Outros'
 ];
 
