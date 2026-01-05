@@ -1,5 +1,10 @@
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
-  // Expose APIs here if needed in the future
+  store: {
+    get: (key) => ipcRenderer.invoke('store-get', key),
+    set: (key, value) => ipcRenderer.invoke('store-set', key, value),
+    delete: (key) => ipcRenderer.invoke('store-delete', key),
+  },
+  openDataFolder: () => ipcRenderer.invoke('open-data-folder'),
 });

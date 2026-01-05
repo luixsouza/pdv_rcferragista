@@ -42,7 +42,7 @@ export function Layout({ children }: LayoutProps) {
         </Button>
         <div className="flex items-center gap-2 ml-4">
           <Wrench className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-lg">Ferragista PDV</span>
+          <span className="font-semibold text-lg">RC Ferragista</span>
         </div>
       </header>
 
@@ -56,7 +56,7 @@ export function Layout({ children }: LayoutProps) {
       >
         <div className="h-16 flex items-center gap-3 px-6 border-b border-border">
           <Wrench className="h-7 w-7 text-primary" />
-          <span className="font-bold text-xl">Ferragista PDV</span>
+          <span className="font-bold text-xl">RC Ferragista</span>
         </div>
         
         <nav className="p-4 space-y-2">

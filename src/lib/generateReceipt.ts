@@ -14,24 +14,48 @@ export function generateReceipt(sale: Sale) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [80, 200]
+    format: [80, 200] // Altura pode precisar aumentar dependendo da quantidade de itens
   });
 
   const pageWidth = 80;
   const margin = 5;
-  const contentWidth = pageWidth - margin * 2;
+  // const contentWidth = pageWidth - margin * 2; // Variável não utilizada diretamente, mas útil para referência
   let y = 10;
 
-  // Header
-  doc.setFontSize(14);
+  // --- CABEÇALHO DA EMPRESA (Alterado) ---
+  
+  // Nome da Empresa
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('FERRAGISTA', pageWidth / 2, y, { align: 'center' });
-  y += 6;
+  doc.text('RC CASA&CONSTRUÇÃO', pageWidth / 2, y, { align: 'center' });
+  y += 5;
 
+  // Dados da Empresa (Fonte menor)
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
+  
+  // CNPJ Formatado
+  doc.text('CNPJ: 46.483.338/0001-42', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+
+  // Endereço (Quebrado em linhas para caber nos 80mm)
+  doc.text('Rua Vicente Bueno, Nº 160', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+  doc.text('Setor Paraíso - Inhumas, GO', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+  doc.text('CEP: 75400-896', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+
+  // Contato
+  doc.text('Tel: (62) 99275-1884', pageWidth / 2, y, { align: 'center' });
+  y += 6;
+
+  // --- FIM DO CABEÇALHO DA EMPRESA ---
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
   doc.text('CUPOM NÃO FISCAL', pageWidth / 2, y, { align: 'center' });
-  y += 8;
+  y += 5;
 
   // Separator
   doc.setLineWidth(0.1);
@@ -40,6 +64,7 @@ export function generateReceipt(sale: Sale) {
 
   // Date and ID
   doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
   doc.text(`Data: ${format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, margin, y);
   y += 4;
   doc.text(`Venda: #${sale.id.slice(0, 8).toUpperCase()}`, margin, y);
