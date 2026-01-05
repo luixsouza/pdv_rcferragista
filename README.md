@@ -1,73 +1,60 @@
-# Welcome to your Lovable project
+# PDV RC Ferragista
 
-## Project info
+Sistema de Ponto de Venda (PDV) simples e offline, desenvolvido para gerenciamento de vendas, produtos e clientes.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Como Rodar o Projeto (Desenvolvimento)
 
-## How can I edit this code?
+Para rodar o projeto em modo de desenvolvimento (com hot-reload):
 
-There are several ways of editing your application.
+1. Instale as dependências (caso ainda não tenha feito):
+   ```bash
+   npm install
+   ```
 
-**Use Lovable**
+2. Inicie a aplicação:
+   ```bash
+   npm run electron:dev
+   ```
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 📦 Como Gerar o Executável (Build)
 
-Changes made via Lovable will be committed automatically to this repo.
+Para criar o instalador `.exe` para usar no computador do cliente:
 
-**Use your preferred IDE**
+1. Execute o comando de build:
+   ```bash
+   npm run electron:build
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. O arquivo instalador será gerado na pasta:
+   `dist-electron/PDV RC Ferragista Setup X.X.X.exe`
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 💾 Backup e Restauração de Dados
 
-Follow these steps:
+O sistema salva todos os dados (Produtos, Clientes e Vendas) em um arquivo local no computador. É importante fazer backups regulares desse arquivo.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Onde ficam os dados?
+Os dados são salvos em um arquivo chamado **`config.json`**.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+**Caminho no Windows:**
 ```
+C:\Users\<SEU_USUARIO>\AppData\Roaming\PDV RC Ferragista\config.json
+```
+*(Nota: Em modo de desenvolvimento, a pasta pode se chamar `pdv-rc-ferragista` ou `vite_react_shadcn_ts` dependendo da versão, mas na versão instalada no cliente será `pdv-rc-ferragista`)*
 
-**Edit a file directly in GitHub**
+### Como fazer Backup
+1. Pressione a tecla `Windows + R` no teclado.
+2. Digite `%APPDATA%\pdv-rc-ferragista` e aperte Enter.
+3. Copie o arquivo `config.json` para um local seguro (Pen Drive, Google Drive, HD Externo).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Como Restaurar Dados
+1. Instale o programa no novo computador.
+2. Abra o programa pelo menos uma vez e feche-o.
+3. Pressione `Windows + R`, digite `%APPDATA%\pdv-rc-ferragista` e aperte Enter.
+4. Cole o seu arquivo `config.json` de backup nesta pasta (substituindo o existente).
+5. Abra o programa novamente. Seus dados estarão lá.
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🛠 Tecnologias Utilizadas
+- **Electron**: Para transformar o site em aplicativo Desktop.
+- **React + Vite**: Interface do usuário.
+- **Electron Store**: Banco de dados local (arquivo JSON).
+- **Shadcn/ui**: Componentes visuais.
