@@ -26,7 +26,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { format } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { printReceipt, downloadReceipt } from '@/lib/generateReceipt';
@@ -43,17 +50,32 @@ export default function Sales() {
   const [products, setProducts] = useLocalStorage<Product[]>('products', []);
   const { toast } = useToast();
   const [search, setSearch] = useState('');
+  const [period, setPeriod] = useState('all');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   const sortedSales = [...sales].sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  const filteredSales = sortedSales.filter(s =>
-    s.clientName?.toLowerCase().includes(search.toLowerCase()) ||
-    s.id.toLowerCase().includes(search.toLowerCase()) ||
-    format(new Date(s.createdAt), 'dd/MM/yyyy').includes(search)
-  );
+  const filteredSales = sortedSales.filter(s => {
+    const matchesSearch = s.clientName?.toLowerCase().includes(search.toLowerCase()) ||
+      s.id.toLowerCase().includes(search.toLowerCase()) ||
+      format(new Date(s.createdAt), 'dd/MM/yyyy').includes(search);
+
+    if (!matchesSearch) return false;
+
+    const date = new Date(s.createdAt);
+    switch (period) {
+      case 'today':
+        return isToday(date);
+      case 'week':
+        return isThisWeek(date, { locale: ptBR });
+      case 'month':
+        return isThisMonth(date);
+      default:
+        return true;
+    }
+  });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -103,8 +125,8 @@ export default function Sales() {
         description={`Total hoje: ${formatCurrency(totalToday)}`}
       />
 
-      <div className="mb-6">
-        <div className="relative max-w-sm">
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por cliente ou data..."
@@ -113,6 +135,17 @@ export default function Sales() {
             className="pl-10"
           />
         </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Período" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todo o período</SelectItem>
+            <SelectItem value="today">Hoje</SelectItem>
+            <SelectItem value="week">Esta semana</SelectItem>
+            <SelectItem value="month">Este mês</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {filteredSales.length === 0 ? (
@@ -190,17 +223,32 @@ export default function Sales() {
               <div className="space-y-2">
                 <p className="font-medium">Itens</p>
                 <div className="space-y-2">
-                  {selectedSale.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between p-2 bg-muted/50 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium">{item.productName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.quantity}x {formatCurrency(item.unitPrice)}
-                        </p>
+                  {selectedSale.items.map((item, idx) => {
+                    // Try to get stored cost, or fallback to current product cost from products list
+                    const product = products.find(p => p.id === item.productId);
+                    const costPrice = item.costPrice ?? product?.costPrice ?? 0;
+                    const profit = (item.unitPrice - costPrice) * item.quantity;
+                    
+                    return (
+                      <div key={idx} className="flex justify-between p-2 bg-muted/50 rounded-lg">
+                        <div>
+                          <p className="text-sm font-medium">{item.productName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.quantity}x {formatCurrency(item.unitPrice)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Custo unit.: {formatCurrency(costPrice)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{formatCurrency(item.total)}</p>
+                          <p className={`text-xs ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            Lucro: {formatCurrency(profit)}
+                          </p>
+                        </div>
                       </div>
-                      <p className="font-medium">{formatCurrency(item.total)}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -219,7 +267,29 @@ export default function Sales() {
                   <span>Total:</span>
                   <span>{formatCurrency(selectedSale.total)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+
+                {(() => {
+                   const totalCost = selectedSale.items.reduce((acc, item) => {
+                     const product = products.find(p => p.id === item.productId);
+                     const cost = item.costPrice ?? product?.costPrice ?? 0;
+                     return acc + (cost * item.quantity);
+                   }, 0);
+                   const totalProfit = selectedSale.total - (totalCost - selectedSale.discount); // Assuming discount affects profit directly or proportionally? Usually discount reduces profit.
+                   // Total Sale Value (total) already includes discount subtraction in POS logic?
+                   // In POS.tsx: total = subtotal - discount.
+                   // Profit = (Total Sale Price) - (Total Cost).
+                   
+                   return (
+                      <div className="flex justify-between text-sm pt-2 border-t border-dashed">
+                        <span className="text-muted-foreground">Lucro da Venda:</span>
+                        <span className={`font-medium ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(totalProfit)}
+                        </span>
+                      </div>
+                   );
+                })()}
+
+                <div className="flex justify-between text-sm pt-2">
                   <span>Pagamento:</span>
                   <div className="flex gap-2">
                     {selectedSale.status === 'refunded' && (

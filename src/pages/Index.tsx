@@ -1,23 +1,57 @@
+import { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { StatsCard } from '@/components/StatsCard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale } from '@/types';
 import { Package, Users, ShoppingCart, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format } from 'date-fns';
+import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Index = () => {
   const [products] = useLocalStorage<Product[]>('products', []);
   const [clients] = useLocalStorage<Client[]>('clients', []);
   const [sales] = useLocalStorage<Sale[]>('sales', []);
+  const [period, setPeriod] = useState('today');
 
-  const today = new Date().toDateString();
-  const todaySales = sales.filter(sale => new Date(sale.createdAt).toDateString() === today);
-  const todayRevenue = todaySales.reduce((sum, sale) => sum + sale.total, 0);
+  const periodSales = sales.filter(sale => {
+    if (sale.status === 'refunded') return false;
+    
+    const date = new Date(sale.createdAt);
+    switch (period) {
+      case 'today':
+        return isToday(date);
+      case 'week':
+        return isThisWeek(date, { locale: ptBR });
+      case 'month':
+        return isThisMonth(date);
+      default:
+        return true;
+    }
+  });
+
+  const periodRevenue = periodSales.reduce((sum, sale) => sum + sale.total, 0);
   
   const lowStockProducts = products.filter(p => p.stock <= p.minStock);
-  const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
+  const totalRevenue = sales
+    .filter(sale => sale.status !== 'refunded')
+    .reduce((sum, sale) => sum + sale.total, 0);
+
+  const getPeriodLabel = () => {
+    switch (period) {
+      case 'today': return 'Vendas Hoje';
+      case 'week': return 'Vendas da Semana';
+      case 'month': return 'Vendas do Mês';
+      default: return 'Todas as Vendas';
+    }
+  };
 
   const recentSales = sales.slice(-5).reverse();
 
@@ -31,15 +65,28 @@ const Index = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Bem-vindo ao seu sistema de gestão</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground">Bem-vindo ao seu sistema de gestão</p>
+          </div>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="week">Esta semana</SelectItem>
+              <SelectItem value="month">Este mês</SelectItem>
+              <SelectItem value="all">Todo o período</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
-            title="Vendas Hoje"
-            value={formatCurrency(todayRevenue)}
+            title={getPeriodLabel()}
+            value={formatCurrency(periodRevenue)}
             icon={TrendingUp}
           />
           <StatsCard

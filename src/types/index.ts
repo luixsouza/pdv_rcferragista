@@ -29,6 +29,7 @@ export interface SaleItem {
   productName: string;
   quantity: number;
   unitPrice: number;
+  costPrice?: number;
   total: number;
 }
 

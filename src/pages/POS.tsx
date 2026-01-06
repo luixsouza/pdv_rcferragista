@@ -25,7 +25,7 @@ export default function POS() {
   const [cart, setCart] = useState<SaleItem[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<Sale['paymentMethod']>('cash');
-  const [discount, setDiscount] = useState(0);
+  const [discountPercentage, setDiscountPercentage] = useState(0);
   const [search, setSearch] = useState('');
 
   const filteredProducts = products.filter(p =>
@@ -35,7 +35,8 @@ export default function POS() {
   );
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-  const total = subtotal - discount;
+  const discountValue = (subtotal * discountPercentage) / 100;
+  const total = subtotal - discountValue;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -63,6 +64,7 @@ export default function POS() {
         productName: product.name,
         quantity: 1,
         unitPrice: product.price,
+        costPrice: product.costPrice,
         total: product.price
       }]);
     }
@@ -112,7 +114,7 @@ export default function POS() {
       clientName: client?.name,
       items: cart,
       subtotal,
-      discount,
+      discount: discountValue,
       total,
       paymentMethod,
       createdAt: new Date().toISOString()
@@ -133,7 +135,7 @@ export default function POS() {
     // Reset
     setCart([]);
     setSelectedClient('');
-    setDiscount(0);
+    setDiscountPercentage(0);
     setPaymentMethod('cash');
     
     toast.success(`Venda finalizada: ${formatCurrency(total)}`);
@@ -255,13 +257,21 @@ export default function POS() {
               <div className="mt-4 pt-4 border-t border-border space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">Desconto:</span>
+                    <span className="text-sm">Desconto (%):</span>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="1"
                       min="0"
-                      value={discount}
-                      onChange={e => setDiscount(parseFloat(e.target.value) || 0)}
+                      max="100"
+                      value={discountPercentage}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        if (val >= 0 && val <= 100) {
+                           setDiscountPercentage(val);
+                        } else if (isNaN(val)) {
+                           setDiscountPercentage(0);
+                        }
+                      }}
                       className="h-8 w-24"
                     />
                   </div>
@@ -269,10 +279,10 @@ export default function POS() {
                     <span>Subtotal:</span>
                     <span>{formatCurrency(subtotal)}</span>
                   </div>
-                  {discount > 0 && (
+                  {discountValue > 0 && (
                     <div className="flex justify-between text-sm text-destructive">
-                      <span>Desconto:</span>
-                      <span>-{formatCurrency(discount)}</span>
+                      <span>Desconto ({discountPercentage}%):</span>
+                      <span>-{formatCurrency(discountValue)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold">
