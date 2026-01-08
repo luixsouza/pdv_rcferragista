@@ -274,10 +274,7 @@ export default function Sales() {
                      const cost = item.costPrice ?? product?.costPrice ?? 0;
                      return acc + (cost * item.quantity);
                    }, 0);
-                   const totalProfit = selectedSale.total - (totalCost - selectedSale.discount); // Assuming discount affects profit directly or proportionally? Usually discount reduces profit.
-                   // Total Sale Value (total) already includes discount subtraction in POS logic?
-                   // In POS.tsx: total = subtotal - discount.
-                   // Profit = (Total Sale Price) - (Total Cost).
+                   const totalProfit = selectedSale.total - totalCost;
                    
                    return (
                       <div className="flex justify-between text-sm pt-2 border-t border-dashed">
