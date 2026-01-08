@@ -6,6 +6,7 @@ import {
   Users, 
   ShoppingCart, 
   History,
+  FileText,
   Menu,
   X,
   Wrench
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/clients', label: 'Clientes', icon: Users },
   { path: '/pos', label: 'PDV', icon: ShoppingCart },
   { path: '/sales', label: 'Vendas', icon: History },
+  { path: '/quotes', label: 'Orçamentos', icon: FileText },
 ];
 
 export function Layout({ children }: LayoutProps) {

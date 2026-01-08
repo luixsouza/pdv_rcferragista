@@ -45,3 +45,16 @@ export interface Sale {
   status?: 'completed' | 'refunded';
   createdAt: string;
 }
+
+export interface Quote {
+  id: string;
+  clientId?: string;
+  clientName?: string;
+  items: SaleItem[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  createdAt: string;
+  expirationDate?: string;
+}
