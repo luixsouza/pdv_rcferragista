@@ -40,7 +40,7 @@ export function ClientCombobox({ clients, value, onChange }: ClientComboboxProps
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 shrink-0" />
             <span className="truncate">
-              {selectedClient ? selectedClient.name : 'Selecionar cliente (opcional)'}
+              {selectedClient ? selectedClient.name : 'Selecionar cliente'}
             </span>
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

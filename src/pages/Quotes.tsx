@@ -20,7 +20,8 @@ export default function Quotes() {
   
   const [cart, setCart] = useState<SaleItem[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>('');
-  const [discountPercentage, setDiscountPercentage] = useState(0);
+  const [discountValue, setDiscountValue] = useState(0);
+  const [isPercentage, setIsPercentage] = useState(true);
   const [search, setSearch] = useState('');
 
   const filteredProducts = products.filter(p =>
@@ -30,8 +31,12 @@ export default function Quotes() {
   );
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-  const discountValue = (subtotal * discountPercentage) / 100;
-  const total = subtotal - discountValue;
+  
+  const finalDiscountValue = isPercentage 
+    ? (subtotal * discountValue) / 100 
+    : discountValue;
+
+  const total = subtotal - finalDiscountValue;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -89,6 +94,26 @@ export default function Quotes() {
     ));
   };
 
+  const updateItemQuantity = (productId: string, newQuantity: number) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    if (newQuantity <= 0) {
+       setCart(cart.filter(i => i.productId !== productId));
+       return;
+    }
+
+    if (newQuantity > product.stock) {
+       toast.warning('Atenção: Quantidade excede o estoque atual');
+    }
+
+    setCart(cart.map(i =>
+      i.productId === productId
+        ? { ...i, quantity: newQuantity, total: newQuantity * i.unitPrice }
+        : i
+    ));
+  };
+
   const removeFromCart = (productId: string) => {
     setCart(cart.filter(i => i.productId !== productId));
   };
@@ -107,7 +132,7 @@ export default function Quotes() {
       clientName: client?.name,
       items: cart,
       subtotal,
-      discount: discountValue,
+      discount: finalDiscountValue,
       total,
       status: 'pending',
       createdAt: new Date().toISOString()
@@ -118,7 +143,8 @@ export default function Quotes() {
     // Reset
     setCart([]);
     setSelectedClient('');
-    setDiscountPercentage(0);
+    setDiscountValue(0);
+    setIsPercentage(true);
     
     toast.success(`Orçamento gerado: ${formatCurrency(total)}`);
   };
@@ -224,7 +250,16 @@ export default function Quotes() {
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
-                        <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+                        <Input
+                          type="number"
+                          className="h-8 w-16 text-center p-0"
+                          value={item.quantity}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                             const val = parseInt(e.target.value);
+                             if (!isNaN(val)) updateItemQuantity(item.productId, val);
+                          }}
+                        />
                         <Button
                           variant="ghost"
                           size="icon"
@@ -251,33 +286,51 @@ export default function Quotes() {
               {/* Totals & Payment */}
               <div className="mt-4 pt-4 border-t border-border space-y-4">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">Desconto (%):</span>
-                    <Input
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      value={discountPercentage}
-                      onChange={e => {
-                        const val = parseFloat(e.target.value);
-                        if (val >= 0 && val <= 100) {
-                           setDiscountPercentage(val);
-                        } else if (isNaN(val)) {
-                           setDiscountPercentage(0);
-                        }
-                      }}
-                      className="h-8 w-24"
-                    />
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-1 items-center gap-2">
+                      <span className="text-sm min-w-fit">Desc. (%):</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={isPercentage ? discountValue : (subtotal > 0 ? (discountValue / subtotal * 100).toFixed(2) : 0)}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= 0) {
+                             setIsPercentage(true);
+                             setDiscountValue(val);
+                          }
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="flex flex-1 items-center gap-2">
+                      <span className="text-sm min-w-fit">Desc. (R$):</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={!isPercentage ? discountValue : (subtotal * discountValue / 100).toFixed(2)}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= 0) {
+                             setIsPercentage(false);
+                             setDiscountValue(val);
+                          }
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        className="h-8"
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Subtotal:</span>
                     <span>{formatCurrency(subtotal)}</span>
                   </div>
-                  {discountValue > 0 && (
+                  {finalDiscountValue > 0 && (
                     <div className="flex justify-between text-sm text-destructive">
-                      <span>Desconto ({discountPercentage}%):</span>
-                      <span>-{formatCurrency(discountValue)}</span>
+                      <span>Desconto:</span>
+                      <span>-{formatCurrency(finalDiscountValue)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold">
