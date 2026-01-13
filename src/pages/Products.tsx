@@ -79,7 +79,7 @@ const categories = [
   'Outros'
 ];
 
-const units = ['un', 'kg', 'mt', 'cx', 'pc', 'lt', 'par', 'jg', 'rl'];
+const units = ['un', 'kg', 'mt', 'cx', 'pc', 'lt', 'par', 'jg', 'rl', 'mil'];
 
 const emptyProduct: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
   name: '',

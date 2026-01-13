@@ -68,9 +68,15 @@ export default function POS() {
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.productId === product.id);
+    const isMilheiro = product.unit === 'mil';
+    const effectiveStock = isMilheiro ? product.stock * 1000 : product.stock;
+    
+    // For 'mil' items, unitPrice is price/1000 (price per unit)
+    const unitPrice = isMilheiro ? product.price / 1000 : product.price;
+    const costPrice = isMilheiro ? (product.costPrice || 0) / 1000 : (product.costPrice || 0);
     
     if (existingItem) {
-      if (existingItem.quantity >= product.stock) {
+      if (existingItem.quantity >= effectiveStock) {
         toast.error('Estoque insuficiente');
         return;
       }
@@ -80,13 +86,17 @@ export default function POS() {
           : item
       ));
     } else {
+      if (effectiveStock < 1) {
+         toast.error('Estoque insuficiente');
+         return;
+      }
       setCart([...cart, {
         productId: product.id,
         productName: product.name,
         quantity: 1,
-        unitPrice: product.price,
-        costPrice: product.costPrice || 0,
-        total: product.price
+        unitPrice: unitPrice,
+        costPrice: costPrice,
+        total: unitPrice
       }]);
     }
     toast.success(`${product.name} adicionado`);
@@ -100,6 +110,9 @@ export default function POS() {
     
     if (!product || !item) return;
 
+    const isMilheiro = product.unit === 'mil';
+    const effectiveStock = isMilheiro ? product.stock * 1000 : product.stock;
+
     const newQuantity = item.quantity + delta;
     
     if (newQuantity <= 0) {
@@ -107,7 +120,7 @@ export default function POS() {
       return;
     }
     
-    if (newQuantity > product.stock) {
+    if (newQuantity > effectiveStock) {
       toast.error('Estoque insuficiente');
       return;
     }
@@ -123,12 +136,15 @@ export default function POS() {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
+    const isMilheiro = product.unit === 'mil';
+    const effectiveStock = isMilheiro ? product.stock * 1000 : product.stock;
+
     if (newQuantity <= 0) {
       setCart(cart.filter(i => i.productId !== productId));
       return;
     }
     
-    if (newQuantity > product.stock) {
+    if (newQuantity > effectiveStock) {
       toast.error('Estoque insuficiente');
       return;
     }
@@ -168,7 +184,8 @@ export default function POS() {
     const updatedProducts = products.map(product => {
       const cartItem = cart.find(item => item.productId === product.id);
       if (cartItem) {
-        return { ...product, stock: product.stock - cartItem.quantity, updatedAt: new Date().toISOString() };
+        const deduction = product.unit === 'mil' ? cartItem.quantity / 1000 : cartItem.quantity;
+        return { ...product, stock: product.stock - deduction, updatedAt: new Date().toISOString() };
       }
       return product;
     });
