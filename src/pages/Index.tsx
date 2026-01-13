@@ -41,8 +41,7 @@ const Index = () => {
 
   const periodCost = periodSales.reduce((sum, sale) => {
     const saleCost = sale.items.reduce((itemSum, item) => {
-      const product = products.find(p => p.id === item.productId);
-      const itemCostPrice = item.costPrice ?? product?.costPrice ?? 0;
+      const itemCostPrice = item.costPrice ?? 0;
       return itemSum + (itemCostPrice * item.quantity);
     }, 0);
     return sum + saleCost;

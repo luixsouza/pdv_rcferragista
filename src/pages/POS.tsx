@@ -57,7 +57,7 @@ export default function POS() {
     ? (subtotal * discountValue) / 100 
     : discountValue;
 
-  const total = subtotal - finalDiscountValue;
+  const total = Math.max(0, subtotal - finalDiscountValue);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -85,7 +85,7 @@ export default function POS() {
         productName: product.name,
         quantity: 1,
         unitPrice: product.price,
-        costPrice: product.costPrice,
+        costPrice: product.costPrice || 0,
         total: product.price
       }]);
     }
