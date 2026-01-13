@@ -3,7 +3,7 @@ import { Layout } from '@/components/Layout';
 import { StatsCard } from '@/components/StatsCard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale } from '@/types';
-import { Package, Users, ShoppingCart, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -38,6 +38,17 @@ const Index = () => {
   });
 
   const periodRevenue = periodSales.reduce((sum, sale) => sum + sale.total, 0);
+
+  const periodCost = periodSales.reduce((sum, sale) => {
+    const saleCost = sale.items.reduce((itemSum, item) => {
+      const product = products.find(p => p.id === item.productId);
+      const itemCostPrice = item.costPrice ?? product?.costPrice ?? 0;
+      return itemSum + (itemCostPrice * item.quantity);
+    }, 0);
+    return sum + saleCost;
+  }, 0);
+
+  const periodProfit = periodRevenue - periodCost;
   
   const lowStockProducts = products.filter(p => p.stock <= p.minStock);
   const totalRevenue = sales
@@ -83,11 +94,21 @@ const Index = () => {
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatsCard
             title={getPeriodLabel()}
             value={formatCurrency(periodRevenue)}
             icon={TrendingUp}
+          />
+          <StatsCard
+            title={getPeriodLabel().replace('Vendas', 'Custo')}
+            value={formatCurrency(periodCost)}
+            icon={TrendingDown}
+          />
+          <StatsCard
+            title={getPeriodLabel().replace('Vendas', 'Lucro')}
+            value={formatCurrency(periodProfit)}
+            icon={DollarSign}
           />
           <StatsCard
             title="Produtos Cadastrados"
@@ -101,7 +122,7 @@ const Index = () => {
           />
           <StatsCard
             title="Total de Vendas"
-            value={formatCurrency(totalRevenue)}
+            value={periodSales.length}
             icon={ShoppingCart}
           />
         </div>

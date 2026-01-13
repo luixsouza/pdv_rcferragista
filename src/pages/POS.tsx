@@ -2,13 +2,26 @@ import { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale, SaleItem } from '@/types';
-import { ShoppingCart, Plus, Minus, Trash2, Search, CreditCard, Wallet, QrCode, Banknote } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, CreditCard, Wallet, QrCode, Banknote, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ClientCombobox } from '@/components/ClientCombobox';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 const paymentMethods = [
   { id: 'cash', label: 'Dinheiro', icon: Banknote },
@@ -27,11 +40,14 @@ export default function POS() {
   const [paymentMethod, setPaymentMethod] = useState<Sale['paymentMethod']>('cash');
   const [discountValue, setDiscountValue] = useState(0);
   const [isPercentage, setIsPercentage] = useState(true);
-  const [search, setSearch] = useState('');
+  
+  // Search state
+  const [openSearch, setOpenSearch] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
 
   const filteredProducts = products.filter(p =>
-    (p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.code.toLowerCase().includes(search.toLowerCase())) &&
+    (p.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+    p.code.toLowerCase().includes(searchValue.toLowerCase())) &&
     p.stock > 0
   );
 
@@ -74,6 +90,8 @@ export default function POS() {
       }]);
     }
     toast.success(`${product.name} adicionado`);
+    setOpenSearch(false);
+    setSearchValue("");
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -170,209 +188,249 @@ export default function POS() {
 
   return (
     <Layout>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-120px)]">
-        {/* Products Grid */}
-        <div className="lg:col-span-2 flex flex-col">
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar produto por nome ou código..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      <div className="flex flex-col h-[calc(100vh-100px)] gap-4">
+        {/* Top Bar: Search & Client */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-1">
+             <ClientCombobox
+               clients={clients}
+               value={selectedClient}
+               onChange={setSelectedClient}
+             />
           </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 overflow-y-auto flex-1 pb-4">
-            {filteredProducts.map(product => (
-              <Card
-                key={product.id}
-                className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
-                onClick={() => addToCart(product)}
-              >
-                <CardContent className="p-4">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                    <ShoppingCart className="h-5 w-5 text-primary" />
-                  </div>
-                  <p className="font-medium text-sm line-clamp-2">{product.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{product.code}</p>
-                  <p className="font-bold mt-2">{formatCurrency(product.price)}</p>
-                  <p className="text-xs text-muted-foreground">Est: {product.stock} {product.unit}</p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="md:col-span-3">
+             <Popover open={openSearch} onOpenChange={setOpenSearch}>
+               <PopoverTrigger asChild>
+                 <Button
+                   variant="outline"
+                   role="combobox"
+                   aria-expanded={openSearch}
+                   className="w-full justify-between h-10 px-3 text-muted-foreground"
+                 >
+                   <div className="flex items-center gap-2">
+                     <Search className="h-4 w-4 shrink-0 opacity-50" />
+                     {searchValue ? searchValue : "Buscar produto (Nome ou Código)..."}
+                   </div>
+                   {searchValue && (
+                      <X 
+                        className="h-4 w-4 opacity-50 hover:opacity-100 z-10" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSearchValue("");
+                        }}
+                      />
+                   )}
+                 </Button>
+               </PopoverTrigger>
+               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                 <Command shouldFilter={false}>
+                   <CommandInput 
+                      placeholder="Buscar produto..." 
+                      value={searchValue}
+                      onValueChange={setSearchValue}
+                   />
+                   <CommandList>
+                     <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                     <CommandGroup heading="Produtos Disponíveis">
+                       {filteredProducts.slice(0, 10).map((product) => (
+                         <CommandItem
+                           key={product.id}
+                           value={product.name + " " + product.code}
+                           onSelect={() => addToCart(product)}
+                           className="flex items-center justify-between cursor-pointer"
+                         >
+                           <div className="flex flex-col">
+                             <span className="font-medium">{product.name}</span>
+                             <span className="text-xs text-muted-foreground">Cód: {product.code}</span>
+                           </div>
+                           <div className="flex items-center gap-4">
+                             <div className="text-right">
+                               <span className="block font-bold">{formatCurrency(product.price)}</span>
+                               <span className="text-xs text-muted-foreground">Est: {product.stock}</span>
+                             </div>
+                             <Plus className="h-4 w-4 text-muted-foreground" />
+                           </div>
+                         </CommandItem>
+                       ))}
+                     </CommandGroup>
+                   </CommandList>
+                 </Command>
+               </PopoverContent>
+             </Popover>
           </div>
         </div>
 
-        {/* Cart */}
-        <div className="flex flex-col">
-          <Card className="flex-1 flex flex-col">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5" />
-                Carrinho
-                {cart.length > 0 && (
-                  <span className="ml-auto text-sm font-normal text-muted-foreground">
-                    {cart.length} {cart.length === 1 ? 'item' : 'itens'}
-                  </span>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
-              {/* Client Selection */}
-              <div className="mb-4">
-                <ClientCombobox
-                  clients={clients}
-                  value={selectedClient}
-                  onChange={setSelectedClient}
-                />
-              </div>
+        {/* Main Content: Cart & Checkout */}
+        <div className="flex flex-col lg:flex-row flex-1 gap-6 overflow-hidden">
+             
+             {/* Left Column: Cart Items List */}
+             <div className="flex-1 bg-card rounded-lg border shadow-sm flex flex-col min-h-0">
+                 <div className="p-4 border-b font-medium grid grid-cols-12 gap-2 text-sm text-muted-foreground bg-muted/30">
+                     <div className="col-span-5 md:col-span-6 pl-2">PRODUTO</div>
+                     <div className="col-span-3 md:col-span-2 text-center">QTD</div>
+                     <div className="col-span-2 text-right hidden md:block">UNITÁRIO</div>
+                     <div className="col-span-4 md:col-span-2 text-right pr-2">TOTAL</div>
+                 </div>
+                 
+                 <div className="flex-1 overflow-auto p-2 space-y-1">
+                     {cart.length === 0 ? (
+                       <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-2 opacity-50">
+                          <ShoppingCart className="h-12 w-12" />
+                          <p>Seu carrinho está vazio</p>
+                          <p className="text-sm">Busque produtos acima para começar</p>
+                       </div>
+                     ) : (
+                       cart.map((item) => (
+                         <div key={item.productId} className="grid grid-cols-12 gap-2 items-center p-3 hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-colors group">
+                             <div className="col-span-5 md:col-span-6">
+                                <p className="font-medium truncate" title={item.productName}>{item.productName}</p>
+                                <p className="text-xs text-muted-foreground md:hidden">
+                                  {formatCurrency(item.unitPrice)} un.
+                                </p>
+                             </div>
+                             
+                             <div className="col-span-3 md:col-span-2 flex items-center justify-center gap-1">
+                               <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => updateQuantity(item.productId, -1)}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  className="h-8 w-14 text-center p-0"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                     const val = parseInt(e.target.value);
+                                     if (!isNaN(val)) updateItemQuantity(item.productId, val);
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => updateQuantity(item.productId, 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                             </div>
+                             
+                             <div className="col-span-2 text-right hidden md:block text-sm">
+                                {formatCurrency(item.unitPrice)}
+                             </div>
+                             
+                             <div className="col-span-4 md:col-span-2 text-right font-bold flex items-center justify-end gap-2">
+                                <span>{formatCurrency(item.total)}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10"
+                                  onClick={() => removeFromCart(item.productId)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                             </div>
+                         </div>
+                       ))
+                     )}
+                 </div>
+             </div>
 
-              {/* Cart Items */}
-              <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
-                {cart.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>Carrinho vazio</p>
-                    <p className="text-sm">Clique nos produtos para adicionar</p>
-                  </div>
-                ) : (
-                  cart.map(item => (
-                    <div key={item.productId} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{item.productName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatCurrency(item.unitPrice)} x {item.quantity}
-                        </p>
+             {/* Right Column: Checkout Summary */}
+             <div className="w-full lg:w-[350px] flex flex-col gap-4">
+                 <Card>
+                   <CardHeader className="pb-2">
+                     <CardTitle className="text-lg">Resumo</CardTitle>
+                   </CardHeader>
+                   <CardContent className="space-y-4">
+                      {/* Discount Controls */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">Desc. (%)</label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={isPercentage ? discountValue : (subtotal > 0 ? (discountValue / subtotal * 100).toFixed(2) : 0)}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value);
+                              if (!isNaN(val) && val >= 0) {
+                                 setIsPercentage(true);
+                                 setDiscountValue(val);
+                              }
+                            }}
+                            onFocus={(e) => e.target.select()}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">Desc. (R$)</label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={!isPercentage ? discountValue : (subtotal * discountValue / 100).toFixed(2)}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value);
+                              if (!isNaN(val) && val >= 0) {
+                                 setIsPercentage(false);
+                                 setDiscountValue(val);
+                              }
+                            }}
+                            onFocus={(e) => e.target.select()}
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => updateQuantity(item.productId, -1)}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <Input
-                          type="number"
-                          className="h-8 w-16 text-center p-0"
-                          value={item.quantity}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => {
-                             const val = parseInt(e.target.value);
-                             if (!isNaN(val)) updateItemQuantity(item.productId, val);
-                          }}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => updateQuantity(item.productId, 1)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => removeFromCart(item.productId)}
-                        >
-                          <Trash2 className="h-3 w-3 text-destructive" />
-                        </Button>
+
+                      <div className="space-y-2 pt-4 border-t">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Subtotal</span>
+                          <span>{formatCurrency(subtotal)}</span>
+                        </div>
+                        {finalDiscountValue > 0 && (
+                          <div className="flex justify-between text-sm text-destructive">
+                            <span>Desconto</span>
+                            <span>-{formatCurrency(finalDiscountValue)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-xl font-bold pt-2 border-t">
+                          <span>Total</span>
+                          <span>{formatCurrency(total)}</span>
+                        </div>
                       </div>
-                      <p className="font-bold text-sm w-20 text-right">{formatCurrency(item.total)}</p>
-                    </div>
-                  ))
-                )}
-              </div>
+                   </CardContent>
+                 </Card>
 
-              {/* Totals & Payment */}
-              <div className="mt-4 pt-4 border-t border-border space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-1 items-center gap-2">
-                      <span className="text-sm min-w-fit">Desc. (%):</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={isPercentage ? discountValue : (subtotal > 0 ? (discountValue / subtotal * 100).toFixed(2) : 0)}
-                        onChange={e => {
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val) && val >= 0) {
-                             setIsPercentage(true);
-                             setDiscountValue(val);
-                          }
-                        }}
-                        onFocus={(e) => e.target.select()}
-                        className="h-8"
-                      />
+                 <div className="bg-card rounded-lg border shadow-sm p-4 space-y-4 flex-1">
+                    <p className="font-medium text-sm">Forma de Pagamento</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {paymentMethods.map(method => (
+                        <Button
+                          key={method.id}
+                          variant={paymentMethod === method.id ? "default" : "outline"}
+                          className={cn(
+                            "h-14 flex flex-col items-center justify-center gap-1",
+                            paymentMethod === method.id && "ring-2 ring-primary ring-offset-1"
+                          )}
+                          onClick={() => setPaymentMethod(method.id)}
+                        >
+                          <method.icon className="h-4 w-4" />
+                          <span className="text-xs">{method.label}</span>
+                        </Button>
+                      ))}
                     </div>
-                    <div className="flex flex-1 items-center gap-2">
-                      <span className="text-sm min-w-fit">Desc. (R$):</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={!isPercentage ? discountValue : (subtotal * discountValue / 100).toFixed(2)}
-                        onChange={e => {
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val) && val >= 0) {
-                             setIsPercentage(false);
-                             setDiscountValue(val);
-                          }
-                        }}
-                        onFocus={(e) => e.target.select()}
-                        className="h-8"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(subtotal)}</span>
-                  </div>
-                  {finalDiscountValue > 0 && (
-                    <div className="flex justify-between text-sm text-destructive">
-                      <span>Desconto:</span>
-                      <span>-{formatCurrency(finalDiscountValue)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total:</span>
-                    <span>{formatCurrency(total)}</span>
-                  </div>
-                </div>
-
-                {/* Payment Method */}
-                <div className="grid grid-cols-4 gap-2">
-                  {paymentMethods.map(method => (
+                    
                     <Button
-                      key={method.id}
-                      variant={paymentMethod === method.id ? "default" : "outline"}
-                      className={cn(
-                        "flex flex-col h-16 gap-1",
-                        paymentMethod === method.id && "ring-2 ring-primary"
-                      )}
-                      onClick={() => setPaymentMethod(method.id)}
+                      className="w-full h-14 text-lg mt-auto"
+                      size="lg"
+                      onClick={finalizeSale}
+                      disabled={cart.length === 0}
                     >
-                      <method.icon className="h-4 w-4" />
-                      <span className="text-xs">{method.label}</span>
+                      Finalizar Venda
                     </Button>
-                  ))}
-                </div>
-
-                <Button
-                  className="w-full h-12 text-lg"
-                  onClick={finalizeSale}
-                  disabled={cart.length === 0}
-                >
-                  Finalizar Venda
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                 </div>
+             </div>
         </div>
       </div>
     </Layout>

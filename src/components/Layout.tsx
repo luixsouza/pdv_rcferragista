@@ -8,8 +8,7 @@ import {
   History,
   FileText,
   Menu,
-  X,
-  Wrench
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -43,8 +42,8 @@ export function Layout({ children }: LayoutProps) {
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
         <div className="flex items-center gap-2 ml-4">
-          <Wrench className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-lg">RC Ferragista</span>
+          <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain" />
+          <span className="font-semibold text-lg">RC Casa & Construção</span>
         </div>
       </header>
 
@@ -57,8 +56,8 @@ export function Layout({ children }: LayoutProps) {
         )}
       >
         <div className="h-16 flex items-center gap-3 px-6 border-b border-border">
-          <Wrench className="h-7 w-7 text-primary" />
-          <span className="font-bold text-xl">RC Ferragista</span>
+          <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain" />
+          <span className="font-bold text-lg leading-tight">RC Casa &<br/>Construção</span>
         </div>
         
         <nav className="p-4 space-y-2">

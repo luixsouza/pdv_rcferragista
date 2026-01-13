@@ -1,4 +1,4 @@
-# PDV RC Ferragista
+# PDV RC Casa & Construção
 
 Sistema de Ponto de Venda (PDV) simples e offline, desenvolvido para gerenciamento de vendas, produtos e clientes.
 
