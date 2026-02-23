@@ -7,21 +7,22 @@ const paymentLabels: Record<string, string> = {
   cash: 'Dinheiro',
   credit: 'Cartão de Crédito',
   debit: 'Cartão de Débito',
-  pix: 'PIX'
+  pix: 'PIX',
+  crediario: 'Crediário',
+  store_credit: 'Crédito em Haver'
 };
 
 export function generateReceipt(sale: Sale) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [80, 200] // Altura pode precisar aumentar dependendo da quantidade de itens
+    format: [80, 250]
   });
 
   const pageWidth = 80;
   const margin = 5;
-  // const contentWidth = pageWidth - margin * 2; // Variável não utilizada diretamente, mas útil para referência
   let y = 10;
-  
+
   // Nome da Empresa
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -29,7 +30,7 @@ export function generateReceipt(sale: Sale) {
   y += 5;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  
+
   doc.text('CNPJ: 46.483.338/0001-42', pageWidth / 2, y, { align: 'center' });
   y += 4;
 
@@ -85,13 +86,13 @@ export function generateReceipt(sale: Sale) {
 
   // Items
   sale.items.forEach((item) => {
-    const itemName = item.productName.length > 25 
-      ? item.productName.substring(0, 25) + '...' 
+    const itemName = item.productName.length > 25
+      ? item.productName.substring(0, 25) + '...'
       : item.productName;
-    
+
     doc.text(itemName, margin, y);
     y += 3;
-    
+
     const qty = `${item.quantity}x R$ ${item.unitPrice.toFixed(2)}`;
     const total = `R$ ${item.total.toFixed(2)}`;
     doc.text(qty, margin, y);
@@ -122,11 +123,40 @@ export function generateReceipt(sale: Sale) {
   doc.text(`R$ ${sale.total.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
   y += 6;
 
-  // Payment method
+  // Payment method(s)
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Pagamento: ${paymentLabels[sale.paymentMethod]}`, margin, y);
-  y += 8;
+
+  if (sale.paymentEntries && sale.paymentEntries.length > 1) {
+    doc.text('Formas de Pagamento:', margin, y);
+    y += 4;
+    sale.paymentEntries.forEach(entry => {
+      const label = paymentLabels[entry.method] || entry.method;
+      doc.text(`  ${label}: R$ ${entry.amount.toFixed(2)}`, margin, y);
+      y += 3;
+    });
+    y += 1;
+  } else {
+    doc.text(`Pagamento: ${paymentLabels[sale.paymentMethod] || sale.paymentMethod}`, margin, y);
+    y += 4;
+  }
+
+  // Crediario note
+  if (sale.status === 'crediario_pending') {
+    y += 2;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('** VENDA NO CREDIÁRIO **', pageWidth / 2, y, { align: 'center' });
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Pagamento pendente', pageWidth / 2, y, { align: 'center' });
+    y += 4;
+  }
+
+  y += 4;
 
   // Separator
   doc.line(margin, y, pageWidth - margin, y);

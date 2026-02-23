@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  Users, 
-  ShoppingCart, 
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  ShoppingCart,
   History,
   FileText,
+  BookOpen,
+  RotateCcw,
   Menu,
   X
 } from 'lucide-react';
@@ -24,6 +26,8 @@ const navItems = [
   { path: '/pos', label: 'PDV', icon: ShoppingCart },
   { path: '/sales', label: 'Vendas', icon: History },
   { path: '/quotes', label: 'Orçamentos', icon: FileText },
+  { path: '/credit-notes', label: 'Crediário', icon: BookOpen },
+  { path: '/returns', label: 'Devoluções', icon: RotateCcw },
 ];
 
 export function Layout({ children }: LayoutProps) {

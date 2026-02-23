@@ -38,11 +38,13 @@ import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { printReceipt, downloadReceipt } from '@/lib/generateReceipt';
 
-const paymentLabels = {
+const paymentLabels: Record<string, string> = {
   cash: 'Dinheiro',
   credit: 'Crédito',
   debit: 'Débito',
-  pix: 'PIX'
+  pix: 'PIX',
+  crediario: 'Crediário',
+  store_credit: 'Créd. Haver',
 };
 
 export default function Sales() {
@@ -53,7 +55,7 @@ export default function Sales() {
   const [period, setPeriod] = useState('all');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
-  const sortedSales = [...sales].sort((a, b) => 
+  const sortedSales = [...sales].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
@@ -105,7 +107,7 @@ export default function Sales() {
     setProducts(updatedProducts);
 
     // Update sale status
-    const updatedSales = sales.map(s => 
+    const updatedSales = sales.map(s =>
       s.id === sale.id ? { ...s, status: 'refunded' as const } : s
     );
 
@@ -116,6 +118,43 @@ export default function Sales() {
       title: "Venda estornada",
       description: "O estoque foi atualizado e a venda marcada como estornada.",
     });
+  };
+
+  const getStatusBadge = (sale: Sale) => {
+    switch (sale.status) {
+      case 'refunded':
+        return <Badge variant="destructive" className="text-xs">Estornado</Badge>;
+      case 'crediario_pending':
+        return <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">Crediário Pendente</Badge>;
+      case 'crediario_paid':
+        return <Badge variant="outline" className="text-xs border-green-500 text-green-600">Crediário Pago</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  const getPaymentDisplay = (sale: Sale) => {
+    if (sale.paymentEntries && sale.paymentEntries.length > 1) {
+      return (
+        <div className="flex flex-wrap gap-1">
+          {sale.paymentEntries.map((entry, idx) => (
+            <Badge key={idx} variant="secondary" className="text-xs">
+              {paymentLabels[entry.method] || entry.method}
+            </Badge>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <Badge variant="secondary">
+        {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
+      </Badge>
+    );
+  };
+
+  // Can refund: only completed or crediario_paid sales
+  const canRefund = (sale: Sale) => {
+    return sale.status === 'completed' || sale.status === 'crediario_paid' || !sale.status;
   };
 
   return (
@@ -177,12 +216,8 @@ export default function Sales() {
                         {formatCurrency(sale.total)}
                       </p>
                       <div className="flex flex-col items-end gap-1 mt-1">
-                        {sale.status === 'refunded' && (
-                          <Badge variant="destructive" className="text-xs">Estornado</Badge>
-                        )}
-                        <Badge variant="secondary">
-                          {paymentLabels[sale.paymentMethod]}
-                        </Badge>
+                        {getStatusBadge(sale)}
+                        {getPaymentDisplay(sale)}
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -214,7 +249,7 @@ export default function Sales() {
               <div className="text-sm text-muted-foreground">
                 {format(new Date(selectedSale.createdAt), "EEEE, dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
               </div>
-              
+
               <div className="space-y-2">
                 <p className="font-medium">Cliente</p>
                 <p className="text-muted-foreground">{selectedSale.clientName || 'Não identificado'}</p>
@@ -224,11 +259,10 @@ export default function Sales() {
                 <p className="font-medium">Itens</p>
                 <div className="space-y-2">
                   {selectedSale.items.map((item, idx) => {
-                    // Try to get stored cost, or fallback to current product cost from products list
                     const product = products.find(p => p.id === item.productId);
                     const costPrice = item.costPrice ?? product?.costPrice ?? 0;
                     const profit = (item.unitPrice - costPrice) * item.quantity;
-                    
+
                     return (
                       <div key={idx} className="flex justify-between p-2 bg-muted/50 rounded-lg">
                         <div>
@@ -275,7 +309,7 @@ export default function Sales() {
                      return acc + (cost * item.quantity);
                    }, 0);
                    const totalProfit = selectedSale.total - totalCost;
-                   
+
                    return (
                       <div className="flex justify-between text-sm pt-2 border-t border-dashed">
                         <span className="text-muted-foreground">Lucro da Venda:</span>
@@ -288,13 +322,20 @@ export default function Sales() {
 
                 <div className="flex justify-between text-sm pt-2">
                   <span>Pagamento:</span>
-                  <div className="flex gap-2">
-                    {selectedSale.status === 'refunded' && (
-                      <Badge variant="destructive">Estornado</Badge>
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {getStatusBadge(selectedSale)}
+                    {selectedSale.paymentEntries && selectedSale.paymentEntries.length > 1 ? (
+                      selectedSale.paymentEntries.map((entry, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {paymentLabels[entry.method] || entry.method}: {formatCurrency(entry.amount)}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Badge variant="secondary">{paymentLabels[selectedSale.paymentMethod] || selectedSale.paymentMethod}</Badge>
                     )}
-                    <Badge variant="secondary">{paymentLabels[selectedSale.paymentMethod]}</Badge>
                   </div>
                 </div>
+
                 <div className="flex gap-2 pt-4">
                   <Button variant="outline" className="flex-1" onClick={() => printReceipt(selectedSale)}>
                     <Printer className="h-4 w-4 mr-2" />
@@ -306,7 +347,7 @@ export default function Sales() {
                   </Button>
                 </div>
 
-                {selectedSale.status !== 'refunded' && (
+                {canRefund(selectedSale) && (
                   <div className="pt-2 border-t mt-2">
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -324,16 +365,16 @@ export default function Sales() {
                           <AlertDialogDescription>
                             Tem certeza que deseja estornar esta venda?
                             <br />
-                            • O valor de <strong>{formatCurrency(selectedSale.total)}</strong> será revertido.
+                            {'\u2022'} O valor de <strong>{formatCurrency(selectedSale.total)}</strong> será revertido.
                             <br />
-                            • Os itens voltarão para o estoque.
+                            {'\u2022'} Os itens voltarão para o estoque.
                             <br />
-                            • Esta ação não pode ser desfeita.
+                            {'\u2022'} Esta ação não pode ser desfeita.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction 
+                          <AlertDialogAction
                             onClick={() => handleRefund(selectedSale)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >

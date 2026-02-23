@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { StatsCard } from '@/components/StatsCard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Product, Client, Sale } from '@/types';
-import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from 'lucide-react';
+import { Product, Client, Sale, Installment } from '@/types';
+import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle, BookOpen, UserX } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -15,15 +16,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const paymentLabels: Record<string, string> = {
+  cash: 'Dinheiro',
+  credit: 'Crédito',
+  debit: 'Débito',
+  pix: 'PIX',
+  crediario: 'Crediário',
+  store_credit: 'Créd. Haver',
+};
+
 const Index = () => {
   const [products] = useLocalStorage<Product[]>('products', []);
   const [clients] = useLocalStorage<Client[]>('clients', []);
   const [sales] = useLocalStorage<Sale[]>('sales', []);
+  const [installments] = useLocalStorage<Installment[]>('installments', []);
   const [period, setPeriod] = useState('today');
 
   const periodSales = sales.filter(sale => {
     if (sale.status === 'refunded') return false;
-    
+
     const date = new Date(sale.createdAt);
     switch (period) {
       case 'today':
@@ -49,11 +60,21 @@ const Index = () => {
   }, 0);
 
   const periodProfit = periodRevenue - periodCost;
-  
-  const lowStockProducts = products.filter(p => p.stock <= p.minStock);
-  const totalRevenue = sales
-    .filter(sale => sale.status !== 'refunded')
-    .reduce((sum, sale) => sum + sale.total, 0);
+
+  const lowStockProducts = products.filter(p => {
+    const threshold = p.minStock > 0 ? p.minStock : 5;
+    return p.stock <= threshold;
+  });
+
+  const pendingCrediario = installments
+    .filter(i => i.status === 'open' || i.status === 'overdue')
+    .reduce((sum, i) => sum + (i.amount - i.amountPaid), 0);
+
+  const delinquentClientIds = new Set(
+    installments.filter(i => i.status === 'overdue').map(i => i.clientId)
+  );
+  const delinquentCount = delinquentClientIds.size;
+
 
   const getPeriodLabel = () => {
     switch (period) {
@@ -94,7 +115,7 @@ const Index = () => {
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title={getPeriodLabel()}
             value={formatCurrency(periodRevenue)}
@@ -111,6 +132,14 @@ const Index = () => {
             icon={DollarSign}
           />
           <StatsCard
+            title="Total de Vendas"
+            value={periodSales.length}
+            icon={ShoppingCart}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard
             title="Produtos Cadastrados"
             value={products.length}
             icon={Package}
@@ -121,9 +150,14 @@ const Index = () => {
             icon={Users}
           />
           <StatsCard
-            title="Total de Vendas"
-            value={periodSales.length}
-            icon={ShoppingCart}
+            title="Crediário Pendente"
+            value={formatCurrency(pendingCrediario)}
+            icon={BookOpen}
+          />
+          <StatsCard
+            title="Inadimplentes"
+            value={delinquentCount}
+            icon={UserX}
           />
         </div>
 
@@ -150,7 +184,9 @@ const Index = () => {
                         <p className="text-sm text-muted-foreground">Código: {product.code}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-destructive">{product.stock} {product.unit}</p>
+                        <p className={`font-bold ${product.stock <= 0 ? 'text-destructive' : 'text-amber-500'}`}>
+                          {product.stock} {product.unit}
+                        </p>
                         <p className="text-xs text-muted-foreground">Mín: {product.minStock}</p>
                       </div>
                     </div>
@@ -185,7 +221,14 @@ const Index = () => {
                       </div>
                       <div className="text-right">
                         <p className="font-bold">{formatCurrency(sale.total)}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{sale.paymentMethod}</p>
+                        <div className="flex gap-1 justify-end">
+                          {sale.status === 'crediario_pending' && (
+                            <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">Crediário</Badge>
+                          )}
+                          <Badge variant="secondary" className="text-xs">
+                            {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   ))}

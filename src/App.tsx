@@ -9,6 +9,8 @@ import Clients from "./pages/Clients";
 import POS from "./pages/POS";
 import Quotes from "./pages/Quotes";
 import Sales from "./pages/Sales";
+import CreditNotes from "./pages/CreditNotes";
+import Returns from "./pages/Returns";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
           <Route path="/pos" element={<POS />} />
           <Route path="/quotes" element={<Quotes />} />
           <Route path="/sales" element={<Sales />} />
+          <Route path="/credit-notes" element={<CreditNotes />} />
+          <Route path="/returns" element={<Returns />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>

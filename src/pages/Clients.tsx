@@ -3,8 +3,8 @@ import { Layout } from '@/components/Layout';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Client } from '@/types';
-import { Users, Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Client, Sale } from '@/types';
+import { Users, Plus, Search, Pencil, Trash2, Gift, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,11 +34,13 @@ const emptyClient: Omit<Client, 'id' | 'createdAt' | 'updatedAt'> = {
   email: '',
   phone: '',
   address: '',
-  city: ''
+  city: '',
+  creditLimit: 0
 };
 
 export default function Clients() {
   const [clients, setClients] = useLocalStorage<Client[]>('clients', []);
+  const [sales] = useLocalStorage<Sale[]>('sales', []);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -88,13 +90,24 @@ export default function Clients() {
       email: client.email,
       phone: client.phone,
       address: client.address,
-      city: client.city
+      city: client.city,
+      creditLimit: client.creditLimit || 0
     });
     setDialogOpen(true);
   };
 
   const handleDelete = () => {
     if (deleteId) {
+      const clientToDelete = clients.find(c => c.id === deleteId);
+      const hasPendingCrediario = sales.some(s => s.clientId === deleteId && s.status === 'crediario_pending');
+      if (hasPendingCrediario) {
+        toast.error('Este cliente possui crediário pendente. Quite as notas antes de excluir.');
+        setDeleteId(null);
+        return;
+      }
+      if (clientToDelete && (clientToDelete.storeCredit || 0) > 0) {
+        toast.warning(`Atenção: cliente possuía R$ ${(clientToDelete.storeCredit || 0).toFixed(2)} em crédito em haver.`);
+      }
       setClients(clients.filter(c => c.id !== deleteId));
       toast.success('Cliente excluído com sucesso');
       setDeleteId(null);
@@ -187,6 +200,22 @@ export default function Clients() {
                     placeholder="São Paulo - SP"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="creditLimit">Limite de crédito (R$)</Label>
+                  <Input
+                    id="creditLimit"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.creditLimit || 0}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      setFormData({ ...formData, creditLimit: isNaN(val) ? 0 : val });
+                    }}
+                    onFocus={e => e.target.select()}
+                    placeholder="0,00"
+                  />
+                </div>
                 <div className="flex gap-2 pt-4">
                   <Button variant="outline" className="flex-1" onClick={handleCloseDialog}>
                     Cancelar
@@ -240,7 +269,21 @@ export default function Clients() {
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium">{client.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{client.name}</p>
+                        {(client.creditLimit || 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                            <BookOpen className="h-3 w-3" />
+                            Limite: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(client.creditLimit || 0)}
+                          </span>
+                        )}
+                        {(client.storeCredit || 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300">
+                            <Gift className="h-3 w-3" />
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(client.storeCredit || 0)}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {client.document || 'Sem documento'} • {client.phone || 'Sem telefone'}
                       </p>
