@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Sale, Client, Product, SaleItem, ReturnRecord } from '@/types';
-import { RotateCcw, Search, Package, Calendar, User, ChevronRight, Gift } from 'lucide-react';
+import { RotateCcw, Search, Package, Calendar, User, ChevronRight, Gift, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,9 @@ export default function Returns() {
   const [returnItems, setReturnItems] = useState<{ item: SaleItem; quantity: number; selected: boolean }[]>([]);
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
+  // Search by sale code (alternative to client flow)
+  const [saleCodeSearch, setSaleCodeSearch] = useState('');
+
   // History
   const [searchHistory, setSearchHistory] = useState('');
 
@@ -40,11 +43,31 @@ export default function Returns() {
 
   const client = clients.find(c => c.id === selectedClient);
 
-  // Client's sales that can be returned (completed or crediario_paid, not already fully refunded)
-  const clientSales = sales
-    .filter(s => s.clientId === selectedClient)
+  // Eligible sales for return (completed or crediario_paid, not already fully refunded)
+  const eligibleSales = sales
     .filter(s => s.status === 'completed' || s.status === 'crediario_paid')
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  // Client's sales (when client is selected)
+  const clientSales = selectedClient
+    ? eligibleSales.filter(s => s.clientId === selectedClient)
+    : [];
+
+  // Search sales by code
+  const searchedSales = saleCodeSearch.trim().length >= 3
+    ? eligibleSales.filter(s =>
+        s.id.toUpperCase().includes(saleCodeSearch.trim().toUpperCase()) ||
+        (s.clientName && s.clientName.toLowerCase().includes(saleCodeSearch.trim().toLowerCase()))
+      )
+    : [];
+
+  // Select sale directly from code search (may not have client)
+  const selectSaleFromSearch = (sale: Sale) => {
+    if (sale.clientId) {
+      setSelectedClient(sale.clientId);
+    }
+    selectSale(sale);
+  };
 
   // Get already returned quantities for a sale
   const getReturnedQuantities = (saleId: string): Record<string, number> => {
@@ -85,7 +108,7 @@ export default function Returns() {
     .reduce((sum, ri) => sum + ri.quantity * ri.item.unitPrice, 0);
 
   const handleReturn = () => {
-    if (!selectedSale || !selectedClient) return;
+    if (!selectedSale) return;
 
     const itemsToReturn = returnItems.filter(ri => ri.selected && ri.quantity > 0);
 
@@ -105,11 +128,12 @@ export default function Returns() {
       }
     }
 
+    const hasClient = !!selectedClient;
     const returnRecord: ReturnRecord = {
       id: crypto.randomUUID(),
       originalSaleId: selectedSale.id,
-      clientId: selectedClient,
-      clientName: client?.name || 'Não identificado',
+      clientId: selectedClient || 'sem-cliente',
+      clientName: client?.name || selectedSale.clientName || 'Sem cliente',
       items: itemsToReturn.map(ri => ({
         productId: ri.item.productId,
         productName: ri.item.productName,
@@ -119,7 +143,7 @@ export default function Returns() {
         total: ri.quantity * ri.item.unitPrice,
       })),
       totalRefunded: totalRefund,
-      creditGenerated: totalRefund,
+      creditGenerated: hasClient ? totalRefund : 0,
       createdAt: new Date().toISOString(),
     };
 
@@ -133,12 +157,14 @@ export default function Returns() {
       return product;
     });
 
-    // Add store credit to client
-    const updatedClients = clients.map(c =>
-      c.id === selectedClient
-        ? { ...c, storeCredit: (c.storeCredit || 0) + totalRefund, updatedAt: new Date().toISOString() }
-        : c
-    );
+    // Add store credit to client (only if client exists)
+    const updatedClients = hasClient
+      ? clients.map(c =>
+          c.id === selectedClient
+            ? { ...c, storeCredit: (c.storeCredit || 0) + totalRefund, updatedAt: new Date().toISOString() }
+            : c
+        )
+      : clients;
 
     // Check if all items fully returned - mark sale as refunded
     const allReturnedQtys = getReturnedQuantities(selectedSale.id);
@@ -163,13 +189,19 @@ export default function Returns() {
     setReturnItems([]);
     setStep(1);
     setSelectedClient('');
+    setSaleCodeSearch('');
 
-    toast.success(`Devolução registrada! ${formatCurrency(totalRefund)} adicionado ao crédito em haver do cliente.`);
+    if (hasClient) {
+      toast.success(`Devolução registrada! ${formatCurrency(totalRefund)} adicionado ao crédito em haver do cliente.`);
+    } else {
+      toast.success(`Devolução registrada! Estoque restaurado. (Sem cliente vinculado, crédito não gerado)`);
+    }
   };
 
   const resetFlow = () => {
     setSelectedSale(null);
     setReturnItems([]);
+    setSaleCodeSearch('');
     setStep(1);
   };
 
@@ -197,104 +229,152 @@ export default function Returns() {
 
         <TabsContent value="new" className="space-y-6">
           {/* Step indicators */}
-          <div className="flex items-center gap-2 text-sm">
-            <Badge variant={step >= 1 ? "default" : "secondary"}>1. Cliente</Badge>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <Badge variant={step >= 2 ? "default" : "secondary"}>2. Venda</Badge>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <Badge variant={step >= 3 ? "default" : "secondary"}>3. Itens</Badge>
-          </div>
+          {!selectedSale && (
+            <div className="flex items-center gap-2 text-sm">
+              <Badge variant={step >= 1 ? "default" : "secondary"}>1. Encontrar Venda</Badge>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <Badge variant={step >= 3 ? "default" : "secondary"}>2. Selecionar Itens</Badge>
+            </div>
+          )}
 
-          {/* Step 1: Select Client */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Selecionar Cliente
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-w-sm">
-                <ClientCombobox
-                  clients={clients}
-                  value={selectedClient}
-                  onChange={(value) => {
-                    setSelectedClient(value);
-                    setSelectedSale(null);
-                    setReturnItems([]);
-                    if (value) setStep(2);
-                    else setStep(1);
-                  }}
-                />
-              </div>
-              {client && (client.storeCredit || 0) > 0 && (
-                <div className="mt-3 flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800">
-                  <Gift className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-sm text-green-700 dark:text-green-300">
-                    Crédito em haver: <strong>{formatCurrency(client.storeCredit || 0)}</strong>
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Step 2: Select Sale */}
-          {step >= 2 && selectedClient && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+          {/* Find Sale: Two options */}
+          {!selectedSale && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Option 1: By Client */}
+              <Card>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Selecionar Venda
+                    <User className="h-4 w-4" />
+                    Buscar por Cliente
                   </CardTitle>
-                  {selectedSale && (
-                    <Button variant="ghost" size="sm" onClick={resetFlow}>
-                      Trocar venda
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!selectedSale ? (
-                  clientSales.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">
-                      Nenhuma venda elegível para devolução
-                    </p>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-auto">
-                      {clientSales.map(sale => (
-                        <div
-                          key={sale.id}
-                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
-                          onClick={() => selectSale(sale)}
-                        >
-                          <div>
-                            <p className="text-sm font-medium">
-                              Venda #{sale.id.slice(0, 8).toUpperCase()}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                              {' - '}{sale.items.length} {sale.items.length === 1 ? 'item' : 'itens'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{formatCurrency(sale.total)}</span>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ))}
+                </CardHeader>
+                <CardContent>
+                  <ClientCombobox
+                    clients={clients}
+                    value={selectedClient}
+                    onChange={(value) => {
+                      setSelectedClient(value);
+                      setSelectedSale(null);
+                      setReturnItems([]);
+                      setSaleCodeSearch('');
+                    }}
+                  />
+                  {client && (client.storeCredit || 0) > 0 && (
+                    <div className="mt-3 flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800">
+                      <Gift className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <span className="text-sm text-green-700 dark:text-green-300">
+                        Crédito em haver: <strong>{formatCurrency(client.storeCredit || 0)}</strong>
+                      </span>
                     </div>
-                  )
-                ) : (
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-sm font-medium">
-                      Venda #{selectedSale.id.slice(0, 8).toUpperCase()} - {formatCurrency(selectedSale.total)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(selectedSale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
+                  )}
+
+                  {selectedClient && (
+                    <div className="mt-3 space-y-2 max-h-48 overflow-auto">
+                      {clientSales.length === 0 ? (
+                        <p className="text-muted-foreground text-center py-3 text-sm">
+                          Nenhuma venda elegível para devolução
+                        </p>
+                      ) : (
+                        clientSales.map(sale => (
+                          <div
+                            key={sale.id}
+                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => selectSale(sale)}
+                          >
+                            <div>
+                              <p className="text-sm font-medium">
+                                #{sale.id.slice(0, 8).toUpperCase()}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(sale.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                                {' - '}{sale.items.length} {sale.items.length === 1 ? 'item' : 'itens'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{formatCurrency(sale.total)}</span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Option 2: By Sale Code */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    Buscar por Código da Venda
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Digite o código ou nome do cliente..."
+                      value={saleCodeSearch}
+                      onChange={e => {
+                        setSaleCodeSearch(e.target.value);
+                        setSelectedClient('');
+                      }}
+                      className="pl-10"
+                    />
                   </div>
-                )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Busque pelo código da venda (ex: A1B2C3D4) ou nome do cliente
+                  </p>
+
+                  {saleCodeSearch.trim().length >= 3 && (
+                    <div className="mt-3 space-y-2 max-h-48 overflow-auto">
+                      {searchedSales.length === 0 ? (
+                        <p className="text-muted-foreground text-center py-3 text-sm">
+                          Nenhuma venda encontrada
+                        </p>
+                      ) : (
+                        searchedSales.slice(0, 10).map(sale => (
+                          <div
+                            key={sale.id}
+                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => selectSaleFromSearch(sale)}
+                          >
+                            <div>
+                              <p className="text-sm font-medium">
+                                #{sale.id.slice(0, 8).toUpperCase()}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {sale.clientName || 'Sem cliente'} - {format(new Date(sale.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{formatCurrency(sale.total)}</span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Selected sale info */}
+          {selectedSale && !returnItems.length && (
+            <Card>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">
+                    Venda #{selectedSale.id.slice(0, 8).toUpperCase()} - {formatCurrency(selectedSale.total)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedSale.clientName || 'Sem cliente'} - {format(new Date(selectedSale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={resetFlow}>Trocar venda</Button>
               </CardContent>
             </Card>
           )}
@@ -303,10 +383,21 @@ export default function Returns() {
           {step === 3 && selectedSale && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Selecionar Itens para Devolver
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Selecionar Itens para Devolver
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      #{selectedSale.id.slice(0, 8).toUpperCase()} - {selectedSale.clientName || 'Sem cliente'}
+                    </Badge>
+                    <Button variant="ghost" size="sm" onClick={resetFlow}>Trocar</Button>
+                  </div>
+                </div>
+                {!selectedClient && (
+                  <p className="text-xs text-amber-600 mt-1">Venda sem cliente vinculado - estoque será restaurado, mas crédito em haver não será gerado</p>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
