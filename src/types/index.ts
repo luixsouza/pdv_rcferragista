@@ -38,6 +38,10 @@ export interface SaleItem {
 export interface PaymentEntry {
   method: 'cash' | 'credit' | 'debit' | 'pix' | 'crediario' | 'store_credit';
   amount: number;
+  cardBrand?: string;
+  cardInstallments?: number;
+  cardFeePercent?: number;
+  cardFeeAmount?: number;
 }
 
 export interface Sale {
@@ -55,6 +59,10 @@ export interface Sale {
   crediarioPaid?: number;
   installmentCount?: number;
   entryAmount?: number;
+  cardBrand?: string;
+  cardInstallments?: number;
+  cardFeePercent?: number;
+  cardFeeAmount?: number;
   createdAt: string;
 }
 
@@ -79,7 +87,7 @@ export interface Installment {
   amount: number;
   amountPaid: number;
   dueDate: string;
-  status: 'open' | 'paid' | 'overdue';
+  status: 'open' | 'paid' | 'overdue' | 'cancelled';
   paidAt?: string;
   paymentMethod?: 'cash' | 'credit' | 'debit' | 'pix';
   createdAt: string;
@@ -94,6 +102,7 @@ export interface ReturnRecord {
   totalRefunded: number;
   creditGenerated: number;
   createdAt: string;
+  reversedAt?: string;
 }
 
 export interface Quote {

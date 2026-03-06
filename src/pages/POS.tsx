@@ -4,6 +4,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale, SaleItem, PaymentEntry, Installment } from '@/types';
 import { ShoppingCart, Plus, Minus, Trash2, Search, CreditCard, Wallet, QrCode, Banknote, X, BookOpen, Gift, Split, AlertTriangle } from 'lucide-react';
 import { addMonths } from 'date-fns';
+import { CardBrand, CARD_BRAND_LABELS, getCardFee, calculateFee, hasDebit } from '@/lib/cardFees';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,15 +74,24 @@ export default function POS() {
   const [installmentCount, setInstallmentCount] = useState(1);
   const [entryAmount, setEntryAmount] = useState(0);
 
+  // Card fee state
+  const [cardBrand, setCardBrand] = useState<CardBrand | ''>('');
+  const [cardInstallments, setCardInstallments] = useState(1);
+
   // Search state
   const [openSearch, setOpenSearch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
-  const filteredProducts = products.filter(p =>
-    (p.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-    p.code.toLowerCase().includes(searchValue.toLowerCase())) &&
-    p.stock > 0
-  );
+  const filteredProducts = products
+    .filter(p =>
+      p.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+      p.code.toLowerCase().includes(searchValue.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (a.stock > 0 && b.stock <= 0) return -1;
+      if (a.stock <= 0 && b.stock > 0) return 1;
+      return 0;
+    });
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
 
@@ -113,6 +123,13 @@ export default function POS() {
     : (paymentMethod === 'crediario' ? total : 0);
   const crediarioFinanced = Math.max(0, crediarioTotal - entryAmount);
   const installmentValue = installmentCount > 0 ? crediarioFinanced / installmentCount : 0;
+
+  // Card fee calculations
+  const isCardPayment = !splitMode && (paymentMethod === 'credit' || paymentMethod === 'debit');
+  const cardFeePercent = isCardPayment && cardBrand
+    ? getCardFee(cardBrand as CardBrand, paymentMethod as 'credit' | 'debit', paymentMethod === 'credit' ? cardInstallments : 1)
+    : null;
+  const cardFeeInfo = cardFeePercent !== null ? calculateFee(total, cardFeePercent) : null;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -224,10 +241,16 @@ export default function POS() {
     setPaymentEntries(paymentEntries.filter((_, i) => i !== index));
   };
 
-  const updatePaymentEntry = (index: number, field: 'method' | 'amount', value: string | number) => {
+  const updatePaymentEntry = (index: number, field: 'method' | 'amount' | 'cardBrand' | 'cardInstallments', value: string | number) => {
     setPaymentEntries(paymentEntries.map((entry, i) => {
       if (i !== index) return entry;
-      if (field === 'method') return { ...entry, method: value as PaymentEntry['method'] };
+      if (field === 'method') {
+        const newMethod = value as PaymentEntry['method'];
+        // Reset card fields when changing method
+        return { ...entry, method: newMethod, cardBrand: undefined, cardInstallments: undefined, cardFeePercent: undefined, cardFeeAmount: undefined };
+      }
+      if (field === 'cardBrand') return { ...entry, cardBrand: value as string };
+      if (field === 'cardInstallments') return { ...entry, cardInstallments: value as number };
       return { ...entry, amount: value as number };
     }));
   };
@@ -303,8 +326,43 @@ export default function POS() {
       }
     }
 
+    // Validate card brand for card payments
+    if (!splitMode && (paymentMethod === 'credit' || paymentMethod === 'debit') && !cardBrand) {
+      toast.error('Selecione a bandeira do cartão');
+      return;
+    }
+    if (!splitMode && paymentMethod === 'debit' && cardBrand && !hasDebit(cardBrand as CardBrand)) {
+      toast.error('Débito não disponível para esta bandeira');
+      return;
+    }
+    if (splitMode) {
+      for (const entry of paymentEntries) {
+        if ((entry.method === 'credit' || entry.method === 'debit') && !entry.cardBrand) {
+          toast.error('Selecione a bandeira do cartão em todas as formas de cartão');
+          return;
+        }
+        if (entry.method === 'debit' && entry.cardBrand && !hasDebit(entry.cardBrand as CardBrand)) {
+          toast.error(`Débito não disponível para ${CARD_BRAND_LABELS[entry.cardBrand as CardBrand] || entry.cardBrand}`);
+          return;
+        }
+      }
+    }
+
     const primaryMethod = splitMode ? paymentEntries[0].method : paymentMethod;
     const isCrediario = hasCrediario;
+
+    // Calculate card fees for split entries
+    const finalPaymentEntries = splitMode ? paymentEntries.map(entry => {
+      if ((entry.method === 'credit' || entry.method === 'debit') && entry.cardBrand) {
+        const inst = entry.method === 'credit' ? (entry.cardInstallments || 1) : 1;
+        const fee = getCardFee(entry.cardBrand as CardBrand, entry.method, inst);
+        if (fee !== null) {
+          const { feeAmount } = calculateFee(entry.amount, fee);
+          return { ...entry, cardFeePercent: fee, cardFeeAmount: feeAmount };
+        }
+      }
+      return entry;
+    }) : undefined;
 
     const sale: Sale = {
       id: crypto.randomUUID(),
@@ -315,11 +373,15 @@ export default function POS() {
       discount: finalDiscountValue,
       total,
       paymentMethod: primaryMethod,
-      paymentEntries: splitMode ? paymentEntries : undefined,
+      paymentEntries: finalPaymentEntries,
       status: isCrediario ? 'crediario_pending' : 'completed',
       crediarioPaid: isCrediario ? 0 : undefined,
       installmentCount: isCrediario ? installmentCount : undefined,
       entryAmount: isCrediario && entryAmount > 0 ? entryAmount : undefined,
+      cardBrand: !splitMode && isCardPayment && cardBrand ? cardBrand : undefined,
+      cardInstallments: !splitMode && paymentMethod === 'credit' && cardBrand ? cardInstallments : undefined,
+      cardFeePercent: !splitMode && cardFeePercent !== null ? cardFeePercent : undefined,
+      cardFeeAmount: !splitMode && cardFeeInfo ? cardFeeInfo.feeAmount : undefined,
       createdAt: new Date().toISOString()
     };
 
@@ -425,6 +487,8 @@ export default function POS() {
     setPaymentEntries([{ method: 'cash', amount: 0 }]);
     setInstallmentCount(1);
     setEntryAmount(0);
+    setCardBrand('');
+    setCardInstallments(1);
 
     if (isCrediario) {
       toast.success(`Venda no crediário registrada: ${formatCurrency(total)}`);
@@ -479,26 +543,35 @@ export default function POS() {
                    <CommandList>
                      <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                      <CommandGroup heading="Produtos Disponíveis">
-                       {filteredProducts.slice(0, 10).map((product) => (
-                         <CommandItem
-                           key={product.id}
-                           value={product.name + " " + product.code}
-                           onSelect={() => addToCart(product)}
-                           className="flex items-center justify-between cursor-pointer"
-                         >
-                           <div className="flex flex-col">
-                             <span className="font-medium">{product.name}</span>
-                             <span className="text-xs text-muted-foreground">Cód: {product.code}</span>
-                           </div>
-                           <div className="flex items-center gap-4">
-                             <div className="text-right">
-                               <span className="block font-bold">{formatCurrency(product.price)}</span>
-                               <span className="text-xs text-muted-foreground">Est: {product.stock}</span>
+                       {filteredProducts.slice(0, 10).map((product) => {
+                         const outOfStock = product.stock <= 0;
+                         return (
+                           <CommandItem
+                             key={product.id}
+                             value={product.name + " " + product.code}
+                             onSelect={() => !outOfStock && addToCart(product)}
+                             className={cn(
+                               "flex items-center justify-between cursor-pointer",
+                               outOfStock && "opacity-50 cursor-not-allowed"
+                             )}
+                           >
+                             <div className="flex flex-col">
+                               <span className="font-medium">{product.name}</span>
+                               <span className="text-xs text-muted-foreground">Cód: {product.code}</span>
                              </div>
-                             <Plus className="h-4 w-4 text-muted-foreground" />
-                           </div>
-                         </CommandItem>
-                       ))}
+                             <div className="flex items-center gap-4">
+                               <div className="text-right">
+                                 <span className="block font-bold">{formatCurrency(product.price)}</span>
+                                 {outOfStock
+                                   ? <span className="text-xs text-red-500 font-medium">Sem estoque</span>
+                                   : <span className="text-xs text-muted-foreground">Est: {product.stock}</span>
+                                 }
+                               </div>
+                               {!outOfStock && <Plus className="h-4 w-4 text-muted-foreground" />}
+                             </div>
+                           </CommandItem>
+                         );
+                       })}
                      </CommandGroup>
                    </CommandList>
                  </Command>
@@ -761,56 +834,160 @@ export default function POS() {
                                 "h-14 flex flex-col items-center justify-center gap-1",
                                 paymentMethod === method.id && "ring-2 ring-primary ring-offset-1"
                               )}
-                              onClick={() => setPaymentMethod(method.id)}
+                              onClick={() => {
+                                setPaymentMethod(method.id);
+                                setCardBrand('');
+                                setCardInstallments(1);
+                              }}
                             >
                               <method.icon className="h-4 w-4" />
                               <span className="text-xs">{method.label}</span>
                             </Button>
                           ))}
                         </div>
+
+                        {/* Card fee config */}
+                        {(paymentMethod === 'credit' || paymentMethod === 'debit') && (
+                          <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                            <p className="text-sm font-medium">Configuração do Cartão</p>
+                            <div className={cn("grid gap-3", paymentMethod === 'credit' ? "grid-cols-2" : "grid-cols-1")}>
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium">Bandeira</label>
+                                <Select value={cardBrand} onValueChange={(v) => setCardBrand(v as CardBrand)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(Object.entries(CARD_BRAND_LABELS) as [CardBrand, string][]).map(([key, label]) => (
+                                      <SelectItem key={key} value={key} disabled={paymentMethod === 'debit' && !hasDebit(key)}>
+                                        {label}{paymentMethod === 'debit' && !hasDebit(key) ? ' (sem débito)' : ''}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {paymentMethod === 'credit' && (
+                                <div className="space-y-1">
+                                  <label className="text-xs font-medium">Parcelas</label>
+                                  <Select value={String(cardInstallments)} onValueChange={(v) => setCardInstallments(parseInt(v))}>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from({ length: 18 }, (_, i) => i + 1).map(n => (
+                                        <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                            </div>
+                            {cardFeePercent !== null && cardFeeInfo && (
+                              <div className="text-sm bg-background p-2 rounded border space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Taxa ({cardFeePercent}%)</span>
+                                  <span className="text-red-600 font-medium">-{formatCurrency(cardFeeInfo.feeAmount)}</span>
+                                </div>
+                                <div className="flex justify-between border-t pt-1">
+                                  <span className="font-medium">Valor líquido</span>
+                                  <span className="font-bold text-green-600">{formatCurrency(cardFeeInfo.netAmount)}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="space-y-3">
-                        {paymentEntries.map((entry, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <Select
-                              value={entry.method}
-                              onValueChange={(value) => updatePaymentEntry(index, 'method', value)}
-                            >
-                              <SelectTrigger className="w-[140px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {splitPaymentMethods.map(m => (
-                                  <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={entry.amount}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (!isNaN(val)) updatePaymentEntry(index, 'amount', val);
-                              }}
-                              onFocus={(e) => e.target.select()}
-                              className="flex-1"
-                              placeholder="R$ 0,00"
-                            />
-                            {paymentEntries.length > 1 && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive shrink-0"
-                                onClick={() => removePaymentEntry(index)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
+                        {paymentEntries.map((entry, index) => {
+                          const isCard = entry.method === 'credit' || entry.method === 'debit';
+                          const entryFee = isCard && entry.cardBrand
+                            ? getCardFee(entry.cardBrand as CardBrand, entry.method as 'credit' | 'debit', entry.method === 'credit' ? (entry.cardInstallments || 1) : 1)
+                            : null;
+                          const entryFeeInfo = entryFee !== null && entry.amount > 0 ? calculateFee(entry.amount, entryFee) : null;
+
+                          return (
+                            <div key={index} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  value={entry.method}
+                                  onValueChange={(value) => updatePaymentEntry(index, 'method', value)}
+                                >
+                                  <SelectTrigger className="w-[140px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {splitPaymentMethods.map(m => (
+                                      <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={entry.amount}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val)) updatePaymentEntry(index, 'amount', val);
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  className="flex-1"
+                                  placeholder="R$ 0,00"
+                                />
+                                {paymentEntries.length > 1 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive shrink-0"
+                                    onClick={() => removePaymentEntry(index)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              {isCard && (
+                                <div className="ml-1 flex items-center gap-2">
+                                  <Select
+                                    value={entry.cardBrand || ''}
+                                    onValueChange={(v) => updatePaymentEntry(index, 'cardBrand', v)}
+                                  >
+                                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                                      <SelectValue placeholder="Bandeira..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {(Object.entries(CARD_BRAND_LABELS) as [CardBrand, string][]).map(([key, label]) => (
+                                        <SelectItem key={key} value={key} disabled={entry.method === 'debit' && !hasDebit(key)}>
+                                          {label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {entry.method === 'credit' && (
+                                    <Select
+                                      value={String(entry.cardInstallments || 1)}
+                                      onValueChange={(v) => updatePaymentEntry(index, 'cardInstallments', parseInt(v))}
+                                    >
+                                      <SelectTrigger className="w-[80px] h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {Array.from({ length: 18 }, (_, i) => i + 1).map(n => (
+                                          <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                  {entryFeeInfo && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Taxa {entryFee}% = -{formatCurrency(entryFeeInfo.feeAmount)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
 
                         <Button
                           variant="outline"

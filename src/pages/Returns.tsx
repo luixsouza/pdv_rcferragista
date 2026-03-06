@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Sale, Client, Product, SaleItem, ReturnRecord } from '@/types';
-import { RotateCcw, Search, Package, Calendar, User, ChevronRight, Gift, Hash } from 'lucide-react';
+import { RotateCcw, Search, Package, Calendar, User, ChevronRight, Gift, Hash, AlertTriangle, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +12,21 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ClientCombobox } from '@/components/ClientCombobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { printRefundReceipt, downloadRefundReceipt } from '@/lib/generateReceipt';
 
 export default function Returns() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -71,7 +83,7 @@ export default function Returns() {
 
   // Get already returned quantities for a sale
   const getReturnedQuantities = (saleId: string): Record<string, number> => {
-    const saleReturns = returns.filter(r => r.originalSaleId === saleId);
+    const saleReturns = returns.filter(r => r.originalSaleId === saleId && !r.reversedAt);
     const quantities: Record<string, number> = {};
     saleReturns.forEach(r => {
       r.items.forEach(item => {
@@ -195,6 +207,59 @@ export default function Returns() {
       toast.success(`Devolução registrada! ${formatCurrency(totalRefund)} adicionado ao crédito em haver do cliente.`);
     } else {
       toast.success(`Devolução registrada! Estoque restaurado. (Sem cliente vinculado, crédito não gerado)`);
+    }
+  };
+
+  const handleReverseReturn = (ret: ReturnRecord) => {
+    // 1. Deduct stock (reverse the restoration)
+    const updatedProducts = products.map(product => {
+      const returnItem = ret.items.find(ri => ri.productId === product.id);
+      if (returnItem) {
+        const deduction = product.unit === 'mil' ? returnItem.quantity / 1000 : returnItem.quantity;
+        return { ...product, stock: product.stock - deduction, updatedAt: new Date().toISOString() };
+      }
+      return product;
+    });
+
+    // 2. Deduct store credit from client
+    const updatedClients = ret.creditGenerated > 0 && ret.clientId !== 'sem-cliente'
+      ? clients.map(c => {
+          if (c.id !== ret.clientId) return c;
+          const newCredit = Math.max(0, (c.storeCredit || 0) - ret.creditGenerated);
+          return { ...c, storeCredit: newCredit, updatedAt: new Date().toISOString() };
+        })
+      : clients;
+
+    // 3. Mark return as reversed
+    const updatedReturns = returns.map(r =>
+      r.id === ret.id ? { ...r, reversedAt: new Date().toISOString() } : r
+    );
+
+    // 4. If original sale was marked refunded, restore its status
+    const originalSale = sales.find(s => s.id === ret.originalSaleId);
+    if (originalSale && originalSale.status === 'refunded') {
+      const otherActiveReturns = updatedReturns.filter(r => r.originalSaleId === ret.originalSaleId && !r.reversedAt);
+      const returnedQtys: Record<string, number> = {};
+      otherActiveReturns.forEach(r => r.items.forEach(item => {
+        returnedQtys[item.productId] = (returnedQtys[item.productId] || 0) + item.quantity;
+      }));
+      const allStillReturned = originalSale.items.every(item => (returnedQtys[item.productId] || 0) >= item.quantity);
+
+      if (!allStillReturned) {
+        const restoredStatus = originalSale.crediarioPaid !== undefined ? 'crediario_paid' : 'completed';
+        setSales(sales.map(s => s.id === ret.originalSaleId ? { ...s, status: restoredStatus as Sale['status'] } : s));
+      }
+    }
+
+    setProducts(updatedProducts);
+    setClients(updatedClients);
+    setReturns(updatedReturns);
+
+    const clientObj = clients.find(c => c.id === ret.clientId);
+    if (ret.creditGenerated > 0 && clientObj && (clientObj.storeCredit || 0) < ret.creditGenerated) {
+      toast.warning(`Devolução estornada. Atenção: crédito do cliente era menor que ${formatCurrency(ret.creditGenerated)}, saldo zerado.`);
+    } else {
+      toast.success('Devolução estornada. Estoque e crédito ajustados.');
     }
   };
 
@@ -495,12 +560,12 @@ export default function Returns() {
           ) : (
             <div className="grid gap-4">
               {filteredHistory.map(ret => (
-                <Card key={ret.id} className="hover:shadow-md transition-shadow">
+                <Card key={ret.id} className={`hover:shadow-md transition-shadow ${ret.reversedAt ? 'opacity-60' : ''}`}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
-                          <RotateCcw className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${ret.reversedAt ? 'bg-gray-100 dark:bg-gray-900' : 'bg-blue-100 dark:bg-blue-950'}`}>
+                          <RotateCcw className={`h-6 w-6 ${ret.reversedAt ? 'text-gray-400' : 'text-blue-600 dark:text-blue-400'}`} />
                         </div>
                         <div>
                           <p className="font-medium">{ret.clientName}</p>
@@ -512,14 +577,74 @@ export default function Returns() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600 dark:text-green-400">
+                      <div className="text-right space-y-1">
+                        <p className={`font-bold ${ret.reversedAt ? 'line-through text-muted-foreground' : 'text-green-600 dark:text-green-400'}`}>
                           +{formatCurrency(ret.creditGenerated)}
                         </p>
-                        <Badge variant="secondary" className="text-xs">
-                          <Gift className="h-3 w-3 mr-1" />
-                          Crédito gerado
-                        </Badge>
+                        {ret.reversedAt ? (
+                          <Badge variant="destructive" className="text-xs">Estornado</Badge>
+                        ) : (
+                          <>
+                            <Badge variant="secondary" className="text-xs">
+                              <Gift className="h-3 w-3 mr-1" />
+                              Crédito gerado
+                            </Badge>
+                            <div className="flex gap-1 mt-1 justify-end">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                onClick={() => {
+                                  const sale = sales.find(s => s.id === ret.originalSaleId);
+                                  printRefundReceipt(ret, sale);
+                                }}
+                                title="Imprimir comprovante"
+                              >
+                                <Printer className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                onClick={() => {
+                                  const sale = sales.find(s => s.id === ret.originalSaleId);
+                                  downloadRefundReceipt(ret, sale);
+                                }}
+                                title="Baixar comprovante"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="mt-1 w-full">
+                                  <RotateCcw className="h-3 w-3 mr-1" />
+                                  Estornar
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                                    Estornar devolução?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    O estoque será deduzido novamente e o crédito em haver de {formatCurrency(ret.creditGenerated)} será removido do cliente.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleReverseReturn(ret)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Confirmar Estorno
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardContent>

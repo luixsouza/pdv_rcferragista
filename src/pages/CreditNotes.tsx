@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Sale, Client, CreditPayment, Installment } from '@/types';
-import { BookOpen, Search, DollarSign, Calendar, User, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { BookOpen, Search, DollarSign, Calendar, User, AlertTriangle, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,6 +46,7 @@ export default function CreditNotes() {
   const [selectedClientFilter, setSelectedClientFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'overdue' | 'paid'>('all');
   const [selectedInstallment, setSelectedInstallment] = useState<Installment | null>(null);
+  const [showSaleItems, setShowSaleItems] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<CreditPayment['paymentMethod']>('cash');
 
@@ -141,6 +142,7 @@ export default function CreditNotes() {
     setSelectedInstallment(inst);
     setPaymentAmount(remaining);
     setPaymentMethod('cash');
+    setShowSaleItems(false);
   };
 
   const handlePayment = () => {
@@ -650,6 +652,38 @@ export default function CreditNotes() {
                   <span>{formatCurrency(selectedInstallment.amount - selectedInstallment.amountPaid)}</span>
                 </div>
               </div>
+
+              {/* Expandable sale items */}
+              {(() => {
+                const sale = sales.find(s => s.id === selectedInstallment.saleId);
+                if (!sale) return null;
+                return (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between p-3 h-auto rounded-none"
+                      onClick={() => setShowSaleItems(!showSaleItems)}
+                    >
+                      <span className="text-sm font-medium">Itens da venda ({sale.items.length})</span>
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", showSaleItems && "rotate-180")} />
+                    </Button>
+                    {showSaleItems && (
+                      <div className="px-3 pb-3 space-y-1">
+                        {sale.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground truncate mr-2">{item.quantity}x {item.productName}</span>
+                            <span className="shrink-0">{formatCurrency(item.total)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-sm font-medium border-t pt-1 mt-1">
+                          <span>Total da venda:</span>
+                          <span>{formatCurrency(sale.total)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="space-y-2">
                 <Label>Valor do pagamento</Label>
