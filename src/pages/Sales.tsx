@@ -368,6 +368,11 @@ export default function Sales() {
                       </div>
                     </div>
                     <div className="flex gap-1">
+                      {canReturn(sale) && (
+                        <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setTimeout(() => initiateReturn(sale), 100); }} title="Devolver itens">
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" onClick={() => printReceipt(sale)} title="Imprimir">
                         <Printer className="h-4 w-4" />
                       </Button>
@@ -387,7 +392,7 @@ export default function Sales() {
       )}
 
       <Dialog open={!!selectedSale} onOpenChange={() => { setSelectedSale(null); setReturnMode(false); setReturnItems([]); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalhes da Venda</DialogTitle>
           </DialogHeader>
@@ -508,12 +513,10 @@ export default function Sales() {
                 </div>
 
                 {canReturn(selectedSale) && !returnMode && (
-                  <div className="pt-2 border-t mt-2">
-                    <Button variant="outline" className="w-full" onClick={() => initiateReturn(selectedSale)}>
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Devolver Itens
-                    </Button>
-                  </div>
+                  <Button variant="secondary" className="w-full" onClick={() => initiateReturn(selectedSale)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Devolver Itens
+                  </Button>
                 )}
 
                 {returnMode && (

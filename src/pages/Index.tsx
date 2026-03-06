@@ -177,17 +177,23 @@ const Index = () => {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {lowStockProducts.slice(0, 5).map(product => (
+                  {lowStockProducts.slice(0, 8).map(product => (
                     <div key={product.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div>
                         <p className="font-medium">{product.name}</p>
                         <p className="text-sm text-muted-foreground">Código: {product.code}</p>
                       </div>
                       <div className="text-right">
-                        <p className={`font-bold ${product.stock <= 0 ? 'text-destructive' : 'text-amber-500'}`}>
-                          {product.stock} {product.unit}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Mín: {product.minStock}</p>
+                        {product.stock <= 0 ? (
+                          <p className="font-bold text-destructive">ZERADO</p>
+                        ) : (
+                          <p className="font-bold text-amber-500">
+                            {product.stock} {product.unit}
+                          </p>
+                        )}
+                        {product.minStock > 0 && (
+                          <p className="text-xs text-muted-foreground">Mín: {product.minStock}</p>
+                        )}
                       </div>
                     </div>
                   ))}
