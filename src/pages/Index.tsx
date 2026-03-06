@@ -61,10 +61,9 @@ const Index = () => {
 
   const periodProfit = periodRevenue - periodCost;
 
-  const lowStockProducts = products.filter(p => {
-    const threshold = p.minStock > 0 ? p.minStock : 5;
-    return p.stock <= threshold;
-  });
+  const lowStockProducts = products
+    .filter(p => p.stock <= 10)
+    .sort((a, b) => a.stock - b.stock);
 
   const pendingCrediario = installments
     .filter(i => i.status === 'open' || i.status === 'overdue')
