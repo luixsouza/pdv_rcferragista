@@ -81,7 +81,7 @@ export default function CreditNotes() {
   const resumoCreditLimit = resumoClientData?.creditLimit || 0;
   const resumoCreditUsed = resumoClient
     ? installments
-        .filter(i => i.clientId === resumoClient && (i.status === 'open' || i.status === 'overdue'))
+        .filter(i => i.clientId === resumoClient && (i.status === 'open' || i.status === 'overdue') && i.status !== 'cancelled')
         .reduce((sum, i) => sum + (i.amount - i.amountPaid), 0)
     : 0;
   const resumoCreditAvailable = Math.max(0, resumoCreditLimit - resumoCreditUsed);
@@ -96,20 +96,21 @@ export default function CreditNotes() {
     .filter(i => {
       if (selectedClientFilter && i.clientId !== selectedClientFilter) return false;
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
-      // Hide entry installments (number=0) from list
+      // Hide entry installments (number=0) and cancelled from list
       if (i.number === 0) return false;
+      if (i.status === 'cancelled') return false;
       return true;
     })
     .sort((a, b) => {
       // Overdue first, then open, then paid
       const order = { overdue: 0, open: 1, paid: 2 };
-      const diff = order[a.status] - order[b.status];
+      const diff = (order[a.status] ?? 3) - (order[b.status] ?? 3);
       if (diff !== 0) return diff;
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     });
 
   const totalPendingInstallments = installments
-    .filter(i => i.status === 'open' || i.status === 'overdue')
+    .filter(i => (i.status === 'open' || i.status === 'overdue') && i.status !== 'cancelled')
     .reduce((sum, i) => sum + (i.amount - i.amountPaid), 0);
 
   // ---- Inadimplentes tab ----
@@ -464,7 +465,7 @@ export default function CreditNotes() {
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             {getStatusBadge(inst.status)}
-                            {inst.status !== 'paid' && (
+                            {(inst.status === 'open' || inst.status === 'overdue') && (
                               <Button size="sm" onClick={() => openPaymentDialog(inst)}>
                                 <DollarSign className="h-3 w-3 mr-1" />
                                 Pagar

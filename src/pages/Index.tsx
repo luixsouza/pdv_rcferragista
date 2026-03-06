@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { StatsCard } from '@/components/StatsCard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale, Installment } from '@/types';
-import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle, BookOpen, UserX } from 'lucide-react';
+import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle, BookOpen, UserX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -64,6 +65,14 @@ const Index = () => {
   const lowStockProducts = products
     .filter(p => p.stock <= 10)
     .sort((a, b) => a.stock - b.stock);
+
+  const [lowStockPage, setLowStockPage] = useState(0);
+  const LOW_STOCK_PER_PAGE = 8;
+  const lowStockTotalPages = Math.max(1, Math.ceil(lowStockProducts.length / LOW_STOCK_PER_PAGE));
+  const lowStockPaged = lowStockProducts.slice(
+    lowStockPage * LOW_STOCK_PER_PAGE,
+    (lowStockPage + 1) * LOW_STOCK_PER_PAGE
+  );
 
   const pendingCrediario = installments
     .filter(i => i.status === 'open' || i.status === 'overdue')
@@ -164,9 +173,36 @@ const Index = () => {
           {/* Low Stock Alert */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                Estoque Baixo
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  Estoque Baixo ({lowStockProducts.length})
+                </span>
+                {lowStockTotalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={lowStockPage === 0}
+                      onClick={() => setLowStockPage(p => p - 1)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {lowStockPage + 1}/{lowStockTotalPages}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={lowStockPage >= lowStockTotalPages - 1}
+                      onClick={() => setLowStockPage(p => p + 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -176,23 +212,16 @@ const Index = () => {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {lowStockProducts.slice(0, 8).map(product => (
+                  {lowStockPaged.map(product => (
                     <div key={product.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div>
                         <p className="font-medium">{product.name}</p>
                         <p className="text-sm text-muted-foreground">Código: {product.code}</p>
                       </div>
                       <div className="text-right">
-                        {product.stock <= 0 ? (
-                          <p className="font-bold text-destructive">ZERADO</p>
-                        ) : (
-                          <p className="font-bold text-amber-500">
-                            {product.stock} {product.unit}
-                          </p>
-                        )}
-                        {product.minStock > 0 && (
-                          <p className="text-xs text-muted-foreground">Mín: {product.minStock}</p>
-                        )}
+                        <p className={`font-bold ${product.stock <= 0 ? 'text-destructive' : 'text-amber-500'}`}>
+                          {product.stock} {product.unit}
+                        </p>
                       </div>
                     </div>
                   ))}
