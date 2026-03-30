@@ -4,7 +4,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Client, Sale } from '@/types';
-import { Users, Plus, Search, Pencil, Trash2, Gift, BookOpen } from 'lucide-react';
+import { Users, Plus, Search, Pencil, Trash2, Gift, BookOpen, FileDown } from 'lucide-react';
+import { exportToCSV } from '@/lib/csvExport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,6 +48,13 @@ export default function Clients() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [formData, setFormData] = useState(emptyClient);
+
+  const handleExport = () => {
+    exportToCSV('clientes',
+      ['Nome', 'CPF/CNPJ', 'Telefone', 'Email', 'Endereco', 'Cidade', 'Limite Credito', 'Credito Haver'],
+      clients.map(c => [c.name, c.document, c.phone, c.email, c.address, c.city, String(c.creditLimit || 0), String(c.storeCredit || 0)])
+    );
+  };
 
   const filteredClients = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -135,6 +143,11 @@ export default function Clients() {
         title="Clientes"
         description="Gerencie os clientes da loja"
         action={
+          <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <FileDown className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             if (!open) handleCloseDialog();
             else setDialogOpen(true);
@@ -236,6 +249,7 @@ export default function Clients() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
 

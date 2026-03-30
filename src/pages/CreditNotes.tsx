@@ -4,7 +4,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Sale, Client, CreditPayment, Installment } from '@/types';
-import { BookOpen, Search, DollarSign, Calendar, User, AlertTriangle, CheckCircle2, Clock, ChevronDown, Percent, Printer, Download, Tag } from 'lucide-react';
+import { BookOpen, Search, DollarSign, Calendar, User, AlertTriangle, CheckCircle2, Clock, ChevronDown, Percent, Printer, Download, Tag, FileDown } from 'lucide-react';
+import { exportToCSV } from '@/lib/csvExport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -103,6 +104,23 @@ export default function CreditNotes() {
       if (diff !== 0) return diff;
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     });
+
+  const handleExportCrediario = () => {
+    exportToCSV('crediario',
+      ['Cliente', 'Venda', 'Parcela', 'Valor', 'Desconto', 'Pago', 'Restante', 'Vencimento', 'Status'],
+      installments.filter(i => i.number > 0 && i.status !== 'cancelled').map(i => {
+        const disc = i.discountApplied || 0;
+        const remaining = i.amount - i.amountPaid - disc;
+        return [
+          i.clientName, i.saleId.slice(0, 8).toUpperCase(),
+          `${i.number}/${i.totalInstallments}`,
+          i.amount.toFixed(2), disc.toFixed(2), i.amountPaid.toFixed(2), remaining.toFixed(2),
+          format(new Date(i.dueDate), 'dd/MM/yyyy'),
+          i.status
+        ];
+      })
+    );
+  };
 
   const totalPendingInstallments = installments
     .filter(i => (i.status === 'open' || i.status === 'overdue') && i.status !== 'cancelled')
@@ -323,6 +341,12 @@ export default function CreditNotes() {
       <PageHeader
         title="Crediário"
         description={`Total pendente: ${formatCurrency(totalPendingInstallments)}`}
+        action={
+          <Button variant="outline" onClick={handleExportCrediario}>
+            <FileDown className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
+        }
       />
 
       <Tabs defaultValue="resumo" className="space-y-6">

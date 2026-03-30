@@ -4,7 +4,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product } from '@/types';
-import { Package, Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-react';
+import { Package, Plus, Search, Pencil, Trash2, RefreshCw, FileDown } from 'lucide-react';
+import { exportToCSV } from '@/lib/csvExport';
 import { generateProductCode } from '@/lib/generateProductCode';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
@@ -102,6 +103,13 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState(emptyProduct);
 
+  const handleExport = () => {
+    exportToCSV('produtos',
+      ['Codigo', 'Cod.Barras', 'Nome', 'Categoria', 'Preco Custo', 'Preco Venda', 'Estoque', 'Unidade'],
+      products.map(p => [p.code, p.barcode || '', p.name, p.category, p.costPrice.toFixed(2), p.price.toFixed(2), String(p.stock), p.unit])
+    );
+  };
+
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.code.toLowerCase().includes(search.toLowerCase()) ||
@@ -177,6 +185,11 @@ export default function Products() {
         title="Produtos"
         description="Gerencie o catálogo de produtos da loja"
         action={
+          <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <FileDown className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             if (!open) handleCloseDialog();
             else setDialogOpen(true);
@@ -314,6 +327,7 @@ export default function Products() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
 

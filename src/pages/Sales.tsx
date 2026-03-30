@@ -5,7 +5,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/use-toast';
 import { Sale, Product, Installment, CreditPayment, Client, ReturnRecord, SaleItem } from '@/types';
-import { History, Search, Eye, Calendar, Printer, Download, AlertTriangle, RotateCcw } from 'lucide-react';
+import { History, Search, Eye, Calendar, Printer, Download, AlertTriangle, RotateCcw, FileDown } from 'lucide-react';
+import { exportToCSV } from '@/lib/csvExport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,6 +56,20 @@ export default function Sales() {
   // Return from sale dialog
   const [returnMode, setReturnMode] = useState(false);
   const [returnItems, setReturnItems] = useState<{ item: SaleItem; quantity: number; selected: boolean }[]>([]);
+
+  const handleExport = () => {
+    exportToCSV('vendas',
+      ['Data', 'Cliente', 'Itens', 'Subtotal', 'Desconto', 'Total', 'Pagamento', 'Status'],
+      filteredSales.map(s => [
+        format(new Date(s.createdAt), 'dd/MM/yyyy HH:mm'),
+        s.clientName || 'Sem cliente',
+        s.items.map(i => `${i.quantity}x ${i.productName}`).join(', '),
+        s.subtotal.toFixed(2), s.discount.toFixed(2), s.total.toFixed(2),
+        paymentLabels[s.paymentMethod] || s.paymentMethod,
+        s.status || 'completed'
+      ])
+    );
+  };
 
   const sortedSales = [...sales].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -319,6 +334,10 @@ export default function Sales() {
             <SelectItem value="month">Este mês</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={handleExport}>
+          <FileDown className="h-4 w-4 mr-2" />
+          Exportar
+        </Button>
       </div>
 
       {filteredSales.length === 0 ? (
