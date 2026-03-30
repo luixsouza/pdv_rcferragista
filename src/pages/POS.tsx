@@ -86,7 +86,8 @@ export default function POS() {
   const filteredProducts = products
     .filter(p =>
       p.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-      p.code.toLowerCase().includes(searchValue.toLowerCase())
+      p.code.toLowerCase().includes(searchValue.toLowerCase()) ||
+      p.barcode?.toLowerCase().includes(searchValue.toLowerCase())
     )
     .sort((a, b) => {
       if (a.stock > 0 && b.stock <= 0) return -1;

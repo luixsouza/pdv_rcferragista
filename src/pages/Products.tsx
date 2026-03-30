@@ -85,6 +85,7 @@ const units = ['un', 'kg', 'mt', 'cx', 'pc', 'lt', 'par', 'jg', 'rl', 'mil'];
 const emptyProduct: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
   name: '',
   code: '',
+  barcode: '',
   category: '',
   price: 0,
   costPrice: 0,
@@ -104,6 +105,7 @@ export default function Products() {
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.code.toLowerCase().includes(search.toLowerCase()) ||
+    p.barcode?.toLowerCase().includes(search.toLowerCase()) ||
     p.category.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -144,6 +146,7 @@ export default function Products() {
     setFormData({
       name: product.name,
       code: product.code,
+      barcode: product.barcode || '',
       category: product.category,
       price: product.price,
       costPrice: product.costPrice,
@@ -229,6 +232,15 @@ export default function Products() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">Código de Barras</Label>
+                  <Input
+                    id="barcode"
+                    value={formData.barcode || ''}
+                    onChange={e => setFormData({ ...formData, barcode: e.target.value })}
+                    placeholder="7891234567890"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome *</Label>
@@ -344,7 +356,7 @@ export default function Products() {
                     <div>
                       <p className="font-medium">{product.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {product.code} • {product.category || 'Sem categoria'}
+                        {product.code}{product.barcode ? ` • EAN: ${product.barcode}` : ''} • {product.category || 'Sem categoria'}
                       </p>
                     </div>
                   </div>

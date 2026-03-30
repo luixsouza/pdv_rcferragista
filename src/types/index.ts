@@ -2,6 +2,7 @@ export interface Product {
   id: string;
   name: string;
   code: string;
+  barcode?: string;
   category: string;
   price: number;
   costPrice: number;
@@ -74,6 +75,7 @@ export interface CreditPayment {
   clientName: string;
   amount: number;
   paymentMethod: 'cash' | 'credit' | 'debit' | 'pix';
+  type?: 'payment' | 'discount';
   createdAt: string;
 }
 
@@ -86,6 +88,7 @@ export interface Installment {
   totalInstallments: number;
   amount: number;
   amountPaid: number;
+  discountApplied?: number;
   dueDate: string;
   status: 'open' | 'paid' | 'overdue' | 'cancelled';
   paidAt?: string;
