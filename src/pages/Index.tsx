@@ -3,9 +3,10 @@ import { Layout } from '@/components/Layout';
 import { StatsCard } from '@/components/StatsCard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale, Installment } from '@/types';
-import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle, BookOpen, UserX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle, BookOpen, UserX, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { getStoreSettings } from '@/lib/storeInfo';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,6 +36,8 @@ const Index = () => {
   const [sales] = useLocalStorage<Sale[]>('sales', []);
   const [installments] = useLocalStorage<Installment[]>('installments', []);
   const [period, setPeriod] = useState('today');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const periodSales = sales.filter(sale => {
     if (sale.status === 'refunded') return false;
@@ -47,6 +50,13 @@ const Index = () => {
         return isThisWeek(date, { locale: ptBR });
       case 'month':
         return isThisMonth(date);
+      case 'custom': {
+        if (!dateFrom && !dateTo) return true;
+        const d = new Date(sale.createdAt);
+        if (dateFrom && d < new Date(dateFrom + 'T00:00:00')) return false;
+        if (dateTo && d > new Date(dateTo + 'T23:59:59')) return false;
+        return true;
+      }
       default:
         return true;
     }
@@ -94,11 +104,30 @@ const Index = () => {
       case 'today': return 'Vendas Hoje';
       case 'week': return 'Vendas da Semana';
       case 'month': return 'Vendas do Mês';
+      case 'custom': return 'Período Personalizado';
       default: return 'Todas as Vendas';
     }
   };
 
   const recentSales = sales.slice(-5).reverse();
+
+  const topProducts = useMemo(() => {
+    const productMap = new Map<string, { name: string; qty: number; revenue: number }>();
+    periodSales.forEach(sale => {
+      sale.items.forEach(item => {
+        const existing = productMap.get(item.productId);
+        if (existing) {
+          existing.qty += item.quantity;
+          existing.revenue += item.total;
+        } else {
+          productMap.set(item.productId, { name: item.productName, qty: item.quantity, revenue: item.total });
+        }
+      });
+    });
+    return Array.from(productMap.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+  }, [periodSales]);
 
 
 
@@ -119,8 +148,15 @@ const Index = () => {
               <SelectItem value="week">Esta semana</SelectItem>
               <SelectItem value="month">Este mês</SelectItem>
               <SelectItem value="all">Todo o período</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
+          {period === 'custom' && (
+            <div className="flex gap-2">
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-[160px]" />
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-[160px]" />
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -274,6 +310,38 @@ const Index = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Top Products */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-500" />
+              Mais Vendidos ({getPeriodLabel()})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topProducts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Nenhuma venda no período</p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {topProducts.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={cn("text-sm font-bold w-6 text-center shrink-0",
+                        idx === 0 ? "text-amber-500" : idx === 1 ? "text-gray-400" : idx === 2 ? "text-amber-700" : "text-muted-foreground"
+                      )}>#{idx + 1}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.qty} vendido(s)</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-sm shrink-0 ml-2">{formatCurrency(p.revenue)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );
