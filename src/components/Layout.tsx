@@ -9,6 +9,7 @@ import {
   FileText,
   BookOpen,
   RotateCcw,
+  BarChart3,
   Settings,
   Menu,
   X
@@ -29,6 +30,7 @@ const navItems = [
   { path: '/quotes', label: 'Orçamentos', icon: FileText },
   { path: '/credit-notes', label: 'Crediário', icon: BookOpen },
   { path: '/returns', label: 'Devoluções', icon: RotateCcw },
+  { path: '/reports', label: 'Relatórios', icon: BarChart3 },
   { path: '/settings', label: 'Configurações', icon: Settings },
 ];
 

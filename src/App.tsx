@@ -11,6 +11,7 @@ import Quotes from "./pages/Quotes";
 import Sales from "./pages/Sales";
 import CreditNotes from "./pages/CreditNotes";
 import Returns from "./pages/Returns";
+import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/sales" element={<Sales />} />
           <Route path="/credit-notes" element={<CreditNotes />} />
           <Route path="/returns" element={<Returns />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
