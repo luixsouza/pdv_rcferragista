@@ -4,7 +4,9 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Client, Sale } from '@/types';
-import { Users, Plus, Search, Pencil, Trash2, Gift, BookOpen, FileDown } from 'lucide-react';
+import { Users, Plus, Search, Pencil, Trash2, Gift, BookOpen, FileDown, Eye } from 'lucide-react';
+import { format } from 'date-fns';
+import { formatCurrency } from '@/lib/formatters';
 import { exportToCSV } from '@/lib/csvExport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,8 +29,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatDocument, validateDocument } from '@/lib/documentValidation';
+
+const clientTags = ['Empreiteiro', 'Varejo', 'Cooperado', 'Profissional', 'Atacado', 'VIP'];
 
 const emptyClient: Omit<Client, 'id' | 'createdAt' | 'updatedAt'> = {
   name: '',
@@ -37,13 +43,16 @@ const emptyClient: Omit<Client, 'id' | 'createdAt' | 'updatedAt'> = {
   phone: '',
   address: '',
   city: '',
-  creditLimit: 0
+  creditLimit: 0,
+  tags: [] as string[]
 };
 
 export default function Clients() {
   const [clients, setClients] = useLocalStorage<Client[]>('clients', []);
   const [sales] = useLocalStorage<Sale[]>('sales', []);
   const [search, setSearch] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  const [detailClient, setDetailClient] = useState<Client | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -56,11 +65,13 @@ export default function Clients() {
     );
   };
 
-  const filteredClients = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.document.includes(search) ||
-    c.phone.includes(search)
-  );
+  const filteredClients = clients.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.document.includes(search) ||
+      c.phone.includes(search);
+    const matchesTag = !tagFilter || (c.tags || []).includes(tagFilter);
+    return matchesSearch && matchesTag;
+  });
 
   const handleSave = () => {
     if (!formData.name.trim()) {
@@ -108,7 +119,8 @@ export default function Clients() {
       phone: client.phone,
       address: client.address,
       city: client.city,
-      creditLimit: client.creditLimit || 0
+      creditLimit: client.creditLimit || 0,
+      tags: client.tags || []
     });
     setDialogOpen(true);
   };
@@ -238,6 +250,27 @@ export default function Clients() {
                     placeholder="0,00"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Tags</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {clientTags.map(tag => {
+                      const selected = (formData.tags || []).includes(tag);
+                      return (
+                        <Button key={tag} type="button" variant={selected ? "default" : "outline"} size="sm" className="h-7 text-xs"
+                          onClick={() => {
+                            const current = formData.tags || [];
+                            setFormData({
+                              ...formData,
+                              tags: selected ? current.filter(t => t !== tag) : [...current, tag]
+                            });
+                          }}
+                        >
+                          {tag}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div className="flex gap-2 pt-4">
                   <Button variant="outline" className="flex-1" onClick={handleCloseDialog}>
                     Cancelar
@@ -253,7 +286,7 @@ export default function Clients() {
         }
       />
 
-      <div className="mb-6">
+      <div className="mb-6 flex gap-4">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -263,6 +296,17 @@ export default function Clients() {
             className="pl-10"
           />
         </div>
+        <Select value={tagFilter} onValueChange={v => setTagFilter(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Todas as tags" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as tags</SelectItem>
+            {clientTags.map(tag => (
+              <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {filteredClients.length === 0 ? (
@@ -306,6 +350,9 @@ export default function Clients() {
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(client.storeCredit || 0)}
                           </span>
                         )}
+                        {(client.tags || []).map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">{tag}</Badge>
+                        ))}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {client.document || 'Sem documento'} • {client.phone || 'Sem telefone'}
@@ -318,6 +365,9 @@ export default function Clients() {
                       <p className="text-sm text-muted-foreground">{client.email || 'Sem e-mail'}</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => setDetailClient(client)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -349,6 +399,66 @@ export default function Clients() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!detailClient} onOpenChange={() => setDetailClient(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailClient?.name}</DialogTitle>
+          </DialogHeader>
+          {detailClient && (() => {
+            const clientSales = sales
+              .filter(s => s.clientId === detailClient.id)
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            const validSales = clientSales.filter(s => s.status !== 'refunded');
+            const totalSpent = validSales.reduce((sum, s) => sum + s.total, 0);
+            const saleCount = validSales.length;
+
+            return (
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-lg font-bold">{saleCount}</p>
+                    <p className="text-xs text-muted-foreground">Compras</p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-lg font-bold">{formatCurrency(totalSpent)}</p>
+                    <p className="text-xs text-muted-foreground">Total Gasto</p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-lg font-bold">{saleCount > 0 ? formatCurrency(totalSpent / saleCount) : 'R$ 0'}</p>
+                    <p className="text-xs text-muted-foreground">Ticket Médio</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">Últimas Compras</p>
+                  {clientSales.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma compra registrada</p>
+                  ) : (
+                    clientSales.slice(0, 20).map(sale => (
+                      <div key={sale.id} className="p-3 bg-muted/30 rounded-lg border border-border/50">
+                        <div className="flex justify-between items-center">
+                          <div className="min-w-0 flex-1 mr-3">
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(sale.createdAt), 'dd/MM/yyyy HH:mm')}
+                            </p>
+                            <p className="text-sm truncate">
+                              {sale.items.map(i => `${i.quantity}x ${i.productName}`).join(', ')}
+                            </p>
+                          </div>
+                          <span className={`font-bold text-sm shrink-0 ${sale.status === 'refunded' ? 'line-through text-muted-foreground' : ''}`}>
+                            {formatCurrency(sale.total)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

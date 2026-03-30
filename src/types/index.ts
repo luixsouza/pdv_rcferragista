@@ -21,6 +21,7 @@ export interface Client {
   phone: string;
   address: string;
   city: string;
+  tags?: string[];
   storeCredit?: number;
   creditLimit?: number;
   createdAt: string;
