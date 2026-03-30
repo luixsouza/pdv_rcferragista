@@ -11,6 +11,7 @@ import Quotes from "./pages/Quotes";
 import Sales from "./pages/Sales";
 import CreditNotes from "./pages/CreditNotes";
 import Returns from "./pages/Returns";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/sales" element={<Sales />} />
           <Route path="/credit-notes" element={<CreditNotes />} />
           <Route path="/returns" element={<Returns />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>

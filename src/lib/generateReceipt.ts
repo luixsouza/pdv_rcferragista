@@ -3,8 +3,10 @@ import { Sale, ReturnRecord } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { paymentLabels } from '@/lib/formatters';
+import { getStoreSettings } from '@/lib/storeInfo';
 
 export function generateReceipt(sale: Sale) {
+  const store = getStoreSettings();
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -18,22 +20,22 @@ export function generateReceipt(sale: Sale) {
   // Nome da Empresa
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('RC CASA&CONSTRUÇÃO', pageWidth / 2, y, { align: 'center' });
+  doc.text(store.storeName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
   y += 5;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
 
-  doc.text('CNPJ: 46.483.338/0001-42', pageWidth / 2, y, { align: 'center' });
+  doc.text(`CNPJ: ${store.cnpj}`, pageWidth / 2, y, { align: 'center' });
   y += 4;
 
-  doc.text('Rua Vicente Bueno, Nº 160', pageWidth / 2, y, { align: 'center' });
+  doc.text(store.address, pageWidth / 2, y, { align: 'center' });
   y += 4;
-  doc.text('Setor Paraíso - Inhumas, GO', pageWidth / 2, y, { align: 'center' });
+  doc.text(store.city, pageWidth / 2, y, { align: 'center' });
   y += 4;
-  doc.text('CEP: 75400-896', pageWidth / 2, y, { align: 'center' });
+  doc.text(`CEP: ${store.cep}`, pageWidth / 2, y, { align: 'center' });
   y += 4;
 
-  doc.text('Tel: (62) 99275-1884', pageWidth / 2, y, { align: 'center' });
+  doc.text(`Tel: ${store.phone}`, pageWidth / 2, y, { align: 'center' });
   y += 6;
 
   doc.setFontSize(9);
@@ -188,6 +190,7 @@ export function downloadReceipt(sale: Sale) {
 }
 
 export function generateRefundReceipt(returnRecord: ReturnRecord, originalSale?: Sale) {
+  const store = getStoreSettings();
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -201,11 +204,11 @@ export function generateRefundReceipt(returnRecord: ReturnRecord, originalSale?:
   // Header
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('RC CASA&CONSTRUÇÃO', pageWidth / 2, y, { align: 'center' });
+  doc.text(store.storeName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
   y += 5;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('CNPJ: 46.483.338/0001-42', pageWidth / 2, y, { align: 'center' });
+  doc.text(`CNPJ: ${store.cnpj}`, pageWidth / 2, y, { align: 'center' });
   y += 6;
 
   doc.setFontSize(9);

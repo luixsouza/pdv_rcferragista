@@ -9,6 +9,7 @@ import {
   FileText,
   BookOpen,
   RotateCcw,
+  Settings,
   Menu,
   X
 } from 'lucide-react';
@@ -28,6 +29,7 @@ const navItems = [
   { path: '/quotes', label: 'Orçamentos', icon: FileText },
   { path: '/credit-notes', label: 'Crediário', icon: BookOpen },
   { path: '/returns', label: 'Devoluções', icon: RotateCcw },
+  { path: '/settings', label: 'Configurações', icon: Settings },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -59,12 +61,12 @@ export function Layout({ children }: LayoutProps) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-border">
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-border bg-primary/5">
           <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain" />
-          <span className="font-bold text-lg leading-tight">RC Casa &<br/>Construção</span>
+          <span className="font-bold text-lg leading-tight text-foreground">RC Casa &<br/>Construção</span>
         </div>
-        
-        <nav className="p-4 space-y-2">
+
+        <nav className="p-3 space-y-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -73,14 +75,14 @@ export function Layout({ children }: LayoutProps) {
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+                  "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm",
                   "hover:bg-primary/10",
-                  isActive 
-                    ? "bg-primary text-primary-foreground font-medium" 
-                    : "text-muted-foreground hover:text-foreground"
+                  isActive
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground font-medium"
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className={cn("h-5 w-5", isActive && "drop-shadow-sm")} />
                 <span>{item.label}</span>
               </Link>
             );

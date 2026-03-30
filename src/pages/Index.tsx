@@ -4,6 +4,7 @@ import { StatsCard } from '@/components/StatsCard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale, Installment } from '@/types';
 import { Package, Users, ShoppingCart, TrendingUp, TrendingDown, DollarSign, AlertTriangle, BookOpen, UserX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getStoreSettings } from '@/lib/storeInfo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
@@ -64,8 +65,10 @@ const Index = () => {
 
   const periodProfit = periodRevenue - periodCost;
 
+  const storeSettings = getStoreSettings();
+
   const lowStockProducts = products
-    .filter(p => p.stock <= 10)
+    .filter(p => p.stock <= storeSettings.lowStockThreshold)
     .sort((a, b) => a.stock - b.stock);
 
   const [lowStockPage, setLowStockPage] = useState(0);
