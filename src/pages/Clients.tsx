@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { formatDocument, validateDocument } from '@/lib/documentValidation';
 
 const emptyClient: Omit<Client, 'id' | 'createdAt' | 'updatedAt'> = {
   name: '',
@@ -57,6 +58,14 @@ export default function Clients() {
     if (!formData.name.trim()) {
       toast.error('O nome é obrigatório');
       return;
+    }
+
+    if (formData.document) {
+      const docResult = validateDocument(formData.document);
+      if (!docResult.valid) {
+        toast.error(docResult.type === 'cpf' ? 'CPF inválido' : 'CNPJ inválido');
+        return;
+      }
     }
 
     const now = new Date().toISOString();
@@ -158,7 +167,7 @@ export default function Clients() {
                     <Input
                       id="document"
                       value={formData.document}
-                      onChange={e => setFormData({ ...formData, document: e.target.value })}
+                      onChange={e => setFormData({ ...formData, document: formatDocument(e.target.value) })}
                       placeholder="000.000.000-00"
                     />
                   </div>
