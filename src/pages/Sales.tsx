@@ -51,6 +51,8 @@ export default function Sales() {
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   // Return from sale dialog
@@ -90,6 +92,13 @@ export default function Sales() {
         return isThisWeek(date, { locale: ptBR });
       case 'month':
         return isThisMonth(date);
+      case 'custom': {
+        if (!dateFrom && !dateTo) return true;
+        const d = new Date(s.createdAt);
+        if (dateFrom && d < new Date(dateFrom + 'T00:00:00')) return false;
+        if (dateTo && d > new Date(dateTo + 'T23:59:59')) return false;
+        return true;
+      }
       default:
         return true;
     }
@@ -332,8 +341,15 @@ export default function Sales() {
             <SelectItem value="today">Hoje</SelectItem>
             <SelectItem value="week">Esta semana</SelectItem>
             <SelectItem value="month">Este mês</SelectItem>
+            <SelectItem value="custom">Personalizado</SelectItem>
           </SelectContent>
         </Select>
+        {period === 'custom' && (
+          <div className="flex gap-2">
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-[160px]" />
+            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-[160px]" />
+          </div>
+        )}
         <Button variant="outline" onClick={handleExport}>
           <FileDown className="h-4 w-4 mr-2" />
           Exportar
