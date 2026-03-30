@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Sale, Client, CreditPayment, Installment } from '@/types';
-import { BookOpen, Search, DollarSign, Calendar, User, AlertTriangle, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
+import { BookOpen, Search, DollarSign, Calendar, User, AlertTriangle, CheckCircle2, Clock, ChevronDown, Percent, Printer, Download, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,13 +29,8 @@ import { format, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-
-const paymentLabels: Record<string, string> = {
-  cash: 'Dinheiro',
-  credit: 'Cartão de Crédito',
-  debit: 'Cartão de Débito',
-  pix: 'PIX',
-};
+import { printCrediarioStatement, downloadCrediarioStatement } from '@/lib/generateCrediarioReceipt';
+import { formatCurrency, paymentLabels } from '@/lib/formatters';
 
 export default function CreditNotes() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -50,15 +45,15 @@ export default function CreditNotes() {
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<CreditPayment['paymentMethod']>('cash');
 
+  // Discount dialog state
+  const [discountInstallment, setDiscountInstallment] = useState<Installment | null>(null);
+  const [discountValue, setDiscountValue] = useState(0);
+  const [discountIsPercentage, setDiscountIsPercentage] = useState(false);
+
   // Resumo tab client
   const [resumoClient, setResumoClient] = useState('');
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+
 
   // Auto-update overdue installments on mount
   useEffect(() => {
@@ -82,14 +77,14 @@ export default function CreditNotes() {
   const resumoCreditUsed = resumoClient
     ? installments
         .filter(i => i.clientId === resumoClient && (i.status === 'open' || i.status === 'overdue') && i.status !== 'cancelled')
-        .reduce((sum, i) => sum + (i.amount - i.amountPaid), 0)
+        .reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0)
     : 0;
   const resumoCreditAvailable = Math.max(0, resumoCreditLimit - resumoCreditUsed);
   const resumoUsagePercent = resumoCreditLimit > 0 ? Math.min(100, (resumoCreditUsed / resumoCreditLimit) * 100) : 0;
   const resumoOverdue = resumoClient
     ? installments.filter(i => i.clientId === resumoClient && i.status === 'overdue')
     : [];
-  const resumoOverdueAmount = resumoOverdue.reduce((sum, i) => sum + (i.amount - i.amountPaid), 0);
+  const resumoOverdueAmount = resumoOverdue.reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0);
 
   // ---- Parcelas tab ----
   const filteredInstallments = installments
@@ -111,14 +106,14 @@ export default function CreditNotes() {
 
   const totalPendingInstallments = installments
     .filter(i => (i.status === 'open' || i.status === 'overdue') && i.status !== 'cancelled')
-    .reduce((sum, i) => sum + (i.amount - i.amountPaid), 0);
+    .reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0);
 
   // ---- Inadimplentes tab ----
   const overdueInstallments = installments.filter(i => i.status === 'overdue');
   const delinquentClients = new Map<string, { clientName: string; overdueCount: number; overdueAmount: number; oldestDue: string }>();
   overdueInstallments.forEach(inst => {
     const existing = delinquentClients.get(inst.clientId);
-    const remaining = inst.amount - inst.amountPaid;
+    const remaining = inst.amount - inst.amountPaid - (inst.discountApplied || 0);
     if (existing) {
       existing.overdueCount += 1;
       existing.overdueAmount += remaining;
@@ -139,7 +134,7 @@ export default function CreditNotes() {
 
   // ---- Payment dialog ----
   const openPaymentDialog = (inst: Installment) => {
-    const remaining = inst.amount - inst.amountPaid;
+    const remaining = inst.amount - inst.amountPaid - (inst.discountApplied || 0);
     setSelectedInstallment(inst);
     setPaymentAmount(remaining);
     setPaymentMethod('cash');
@@ -149,7 +144,9 @@ export default function CreditNotes() {
   const handlePayment = () => {
     if (!selectedInstallment) return;
 
-    const remaining = selectedInstallment.amount - selectedInstallment.amountPaid;
+    const discount = selectedInstallment.discountApplied || 0;
+    const effectiveAmount = selectedInstallment.amount - discount;
+    const remaining = effectiveAmount - selectedInstallment.amountPaid;
 
     if (paymentAmount <= 0) {
       toast.error('O valor do pagamento deve ser maior que zero');
@@ -163,7 +160,7 @@ export default function CreditNotes() {
 
     const now = new Date().toISOString();
     const newAmountPaid = selectedInstallment.amountPaid + paymentAmount;
-    const isFullyPaid = newAmountPaid >= selectedInstallment.amount - 0.01;
+    const isFullyPaid = newAmountPaid >= effectiveAmount - 0.01;
 
     // Create credit payment record
     const payment: CreditPayment = {
@@ -225,6 +222,88 @@ export default function CreditNotes() {
       }
     } else {
       toast.success(`Pagamento de ${formatCurrency(paymentAmount)} registrado na parcela ${selectedInstallment.number}/${selectedInstallment.totalInstallments}`);
+    }
+  };
+
+  // ---- Discount dialog ----
+  const openDiscountDialog = (inst: Installment) => {
+    setDiscountInstallment(inst);
+    setDiscountValue(0);
+    setDiscountIsPercentage(false);
+  };
+
+  const handleApplyDiscount = () => {
+    if (!discountInstallment) return;
+
+    const remaining = discountInstallment.amount - discountInstallment.amountPaid - (discountInstallment.discountApplied || 0);
+
+    const computedDiscount = discountIsPercentage
+      ? (remaining * discountValue) / 100
+      : discountValue;
+
+    if (computedDiscount <= 0) {
+      toast.error('O valor do desconto deve ser maior que zero');
+      return;
+    }
+
+    if (computedDiscount > remaining + 0.01) {
+      toast.error(`Desconto excede o saldo da parcela: ${formatCurrency(remaining)}`);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const newDiscount = (discountInstallment.discountApplied || 0) + computedDiscount;
+    const effectiveAmount = discountInstallment.amount - newDiscount;
+    const isFullyPaid = discountInstallment.amountPaid >= effectiveAmount - 0.01;
+
+    // Record discount in credit payments history
+    const discountRecord: CreditPayment = {
+      id: crypto.randomUUID(),
+      saleId: discountInstallment.saleId,
+      installmentId: discountInstallment.id,
+      clientId: discountInstallment.clientId,
+      clientName: discountInstallment.clientName,
+      amount: computedDiscount,
+      paymentMethod: 'cash',
+      type: 'discount',
+      createdAt: now
+    };
+    setCreditPayments([...creditPayments, discountRecord]);
+
+    // Update installment
+    const updatedInstallments = installments.map(i => {
+      if (i.id !== discountInstallment.id) return i;
+      return {
+        ...i,
+        discountApplied: newDiscount,
+        status: isFullyPaid ? 'paid' as const : i.status,
+        paidAt: isFullyPaid ? now : undefined,
+      };
+    });
+    setInstallments(updatedInstallments);
+
+    // Check if all installments are paid for this sale
+    const saleInstallments = updatedInstallments.filter(i => i.saleId === discountInstallment.saleId && i.number > 0);
+    const allPaid = saleInstallments.every(i => {
+      const disc = i.discountApplied || 0;
+      return i.status === 'paid' || i.amountPaid >= (i.amount - disc - 0.01);
+    });
+
+    if (allPaid) {
+      const updatedSales = sales.map(s => {
+        if (s.id !== discountInstallment.saleId) return s;
+        return { ...s, status: 'crediario_paid' as const, paidAt: now };
+      });
+      setSales(updatedSales);
+    }
+
+    setDiscountInstallment(null);
+
+    const label = discountIsPercentage ? `${discountValue}%` : formatCurrency(computedDiscount);
+    if (isFullyPaid) {
+      toast.success(`Desconto de ${label} aplicado. Parcela ${discountInstallment.number}/${discountInstallment.totalInstallments} quitada!`);
+    } else {
+      toast.success(`Desconto de ${label} aplicado na parcela ${discountInstallment.number}/${discountInstallment.totalInstallments}`);
     }
   };
 
@@ -354,7 +433,35 @@ export default function CreditNotes() {
                 return (
                   <Card>
                     <CardContent className="p-4">
-                      <p className="text-sm font-medium mb-3">Parcelas do Cliente</p>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-medium">Parcelas do Cliente</p>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => printCrediarioStatement(
+                              resumoClientData!,
+                              clientInstallments,
+                              sales.filter(s => clientInstallments.some(ci => ci.saleId === s.id))
+                            )}
+                          >
+                            <Printer className="h-3 w-3 mr-1" />
+                            Imprimir
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadCrediarioStatement(
+                              resumoClientData!,
+                              clientInstallments,
+                              sales.filter(s => clientInstallments.some(ci => ci.saleId === s.id))
+                            )}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Baixar
+                          </Button>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-2 bg-amber-50 dark:bg-amber-950 rounded-lg">
                           <p className="text-2xl font-bold text-amber-600">{openCount}</p>
@@ -415,8 +522,10 @@ export default function CreditNotes() {
           ) : (
             <div className="grid gap-3">
               {filteredInstallments.map(inst => {
-                const remaining = inst.amount - inst.amountPaid;
-                const progress = inst.amount > 0 ? (inst.amountPaid / inst.amount) * 100 : 0;
+                const discount = inst.discountApplied || 0;
+                const remaining = inst.amount - inst.amountPaid - discount;
+                const effectiveAmount = inst.amount - discount;
+                const progress = effectiveAmount > 0 ? (inst.amountPaid / effectiveAmount) * 100 : 0;
 
                 return (
                   <Card key={inst.id} className={cn(
@@ -447,6 +556,9 @@ export default function CreditNotes() {
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <p className="text-sm text-muted-foreground">Valor: {formatCurrency(inst.amount)}</p>
+                            {discount > 0 && (
+                              <p className="text-xs text-blue-600">Desconto: -{formatCurrency(discount)}</p>
+                            )}
                             {inst.amountPaid > 0 && inst.status !== 'paid' && (
                               <p className="text-xs text-green-600">Pago: {formatCurrency(inst.amountPaid)}</p>
                             )}
@@ -466,10 +578,16 @@ export default function CreditNotes() {
                           <div className="flex flex-col items-end gap-1">
                             {getStatusBadge(inst.status)}
                             {(inst.status === 'open' || inst.status === 'overdue') && (
-                              <Button size="sm" onClick={() => openPaymentDialog(inst)}>
-                                <DollarSign className="h-3 w-3 mr-1" />
-                                Pagar
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" onClick={() => openDiscountDialog(inst)} title="Aplicar desconto">
+                                  <Tag className="h-3 w-3 mr-1" />
+                                  Desconto
+                                </Button>
+                                <Button size="sm" onClick={() => openPaymentDialog(inst)}>
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                  Pagar
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -500,7 +618,7 @@ export default function CreditNotes() {
                   </p>
                 </div>
                 <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  Total em atraso: {formatCurrency(overdueInstallments.reduce((sum, i) => sum + (i.amount - i.amountPaid), 0))}
+                  Total em atraso: {formatCurrency(overdueInstallments.reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0))}
                 </p>
               </div>
 
@@ -577,13 +695,22 @@ export default function CreditNotes() {
               <div className="grid gap-4">
                 {filteredHistory.map(payment => {
                   const inst = payment.installmentId ? installments.find(i => i.id === payment.installmentId) : null;
+                  const isDiscount = payment.type === 'discount';
                   return (
                     <Card key={payment.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-lg bg-green-100 dark:bg-green-950 flex items-center justify-center">
-                              <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+                            <div className={cn(
+                              "h-12 w-12 rounded-lg flex items-center justify-center",
+                              isDiscount
+                                ? "bg-blue-100 dark:bg-blue-950"
+                                : "bg-green-100 dark:bg-green-950"
+                            )}>
+                              {isDiscount
+                                ? <Tag className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                : <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+                              }
                             </div>
                             <div>
                               <p className="font-medium">{payment.clientName}</p>
@@ -597,9 +724,14 @@ export default function CreditNotes() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</p>
+                            <p className={cn(
+                              "font-bold",
+                              isDiscount ? "text-blue-600 dark:text-blue-400" : "text-green-600 dark:text-green-400"
+                            )}>
+                              {isDiscount ? '-' : ''}{formatCurrency(payment.amount)}
+                            </p>
                             <Badge variant="secondary" className="text-xs">
-                              {paymentLabels[payment.paymentMethod]}
+                              {isDiscount ? 'Desconto' : paymentLabels[payment.paymentMethod]}
                             </Badge>
                           </div>
                         </div>
@@ -612,6 +744,121 @@ export default function CreditNotes() {
           })()}
         </TabsContent>
       </Tabs>
+
+      {/* Discount Dialog */}
+      <Dialog open={!!discountInstallment} onOpenChange={() => setDiscountInstallment(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Aplicar Desconto</DialogTitle>
+          </DialogHeader>
+          {discountInstallment && (() => {
+            const disc = discountInstallment.discountApplied || 0;
+            const remaining = discountInstallment.amount - discountInstallment.amountPaid - disc;
+            const computedDiscount = discountIsPercentage
+              ? (remaining * discountValue) / 100
+              : discountValue;
+            const newRemaining = Math.max(0, remaining - computedDiscount);
+
+            return (
+              <div className="space-y-4 mt-4">
+                <div className="p-3 bg-muted/50 rounded-lg space-y-1">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{discountInstallment.clientName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Parcela {discountInstallment.number}/{discountInstallment.totalInstallments}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-2 border-t mt-2">
+                    <span>Valor original:</span>
+                    <span className="font-medium">{formatCurrency(discountInstallment.amount)}</span>
+                  </div>
+                  {disc > 0 && (
+                    <div className="flex justify-between text-sm text-blue-600">
+                      <span>Desconto anterior:</span>
+                      <span>-{formatCurrency(disc)}</span>
+                    </div>
+                  )}
+                  {discountInstallment.amountPaid > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Já pago:</span>
+                      <span>{formatCurrency(discountInstallment.amountPaid)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-bold text-amber-600">
+                    <span>Saldo atual:</span>
+                    <span>{formatCurrency(remaining)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Tipo de desconto</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant={!discountIsPercentage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => { setDiscountIsPercentage(false); setDiscountValue(0); }}
+                    >
+                      <DollarSign className="h-3 w-3 mr-1" />
+                      Valor (R$)
+                    </Button>
+                    <Button
+                      variant={discountIsPercentage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => { setDiscountIsPercentage(true); setDiscountValue(0); }}
+                    >
+                      <Percent className="h-3 w-3 mr-1" />
+                      Percentual (%)
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{discountIsPercentage ? 'Percentual de desconto' : 'Valor do desconto'}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max={discountIsPercentage ? 100 : remaining}
+                    step={discountIsPercentage ? 1 : 0.01}
+                    value={discountValue}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val)) setDiscountValue(val);
+                    }}
+                    onFocus={e => e.target.select()}
+                    placeholder={discountIsPercentage ? "Ex: 10" : "Ex: 25.00"}
+                  />
+                </div>
+
+                {discountValue > 0 && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-blue-700 dark:text-blue-300">Desconto:</span>
+                      <span className="font-medium text-blue-700 dark:text-blue-300">-{formatCurrency(computedDiscount)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold border-t border-blue-200 dark:border-blue-700 pt-1">
+                      <span className="text-blue-700 dark:text-blue-300">Novo saldo:</span>
+                      <span className="text-blue-700 dark:text-blue-300">{formatCurrency(newRemaining)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setDiscountInstallment(null)}>
+                    Cancelar
+                  </Button>
+                  <Button className="flex-1" onClick={handleApplyDiscount} disabled={discountValue <= 0}>
+                    Aplicar Desconto
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog open={!!selectedInstallment} onOpenChange={() => setSelectedInstallment(null)}>
@@ -642,6 +889,12 @@ export default function CreditNotes() {
                   <span>Valor da parcela:</span>
                   <span className="font-medium">{formatCurrency(selectedInstallment.amount)}</span>
                 </div>
+                {(selectedInstallment.discountApplied || 0) > 0 && (
+                  <div className="flex justify-between text-sm text-blue-600">
+                    <span>Desconto:</span>
+                    <span>-{formatCurrency(selectedInstallment.discountApplied || 0)}</span>
+                  </div>
+                )}
                 {selectedInstallment.amountPaid > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Já pago:</span>
@@ -650,7 +903,7 @@ export default function CreditNotes() {
                 )}
                 <div className="flex justify-between text-sm font-bold text-amber-600">
                   <span>Restante:</span>
-                  <span>{formatCurrency(selectedInstallment.amount - selectedInstallment.amountPaid)}</span>
+                  <span>{formatCurrency(selectedInstallment.amount - selectedInstallment.amountPaid - (selectedInstallment.discountApplied || 0))}</span>
                 </div>
               </div>
 

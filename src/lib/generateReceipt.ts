@@ -2,15 +2,7 @@ import jsPDF from 'jspdf';
 import { Sale, ReturnRecord } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-const paymentLabels: Record<string, string> = {
-  cash: 'Dinheiro',
-  credit: 'Cartão de Crédito',
-  debit: 'Cartão de Débito',
-  pix: 'PIX',
-  crediario: 'Crediário',
-  store_credit: 'Crédito em Haver'
-};
+import { paymentLabels } from '@/lib/formatters';
 
 export function generateReceipt(sale: Sale) {
   const doc = new jsPDF({

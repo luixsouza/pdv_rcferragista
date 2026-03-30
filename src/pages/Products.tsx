@@ -6,6 +6,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product } from '@/types';
 import { Package, Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { generateProductCode } from '@/lib/generateProductCode';
+import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -106,12 +107,6 @@ export default function Products() {
     p.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
 
   const handleSave = () => {
     if (!formData.name.trim()) {

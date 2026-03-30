@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/formatters';
 import {
   Select,
   SelectContent,
@@ -76,7 +78,7 @@ const Index = () => {
 
   const pendingCrediario = installments
     .filter(i => i.status === 'open' || i.status === 'overdue')
-    .reduce((sum, i) => sum + (i.amount - i.amountPaid), 0);
+    .reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0);
 
   const delinquentClientIds = new Set(
     installments.filter(i => i.status === 'overdue').map(i => i.clientId)
@@ -95,20 +97,15 @@ const Index = () => {
 
   const recentSales = sales.slice(-5).reverse();
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+
 
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
           <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground">Bem-vindo ao seu sistema de gestão</p>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">Visao geral do seu negocio</p>
           </div>
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[180px]">
@@ -211,15 +208,18 @@ const Index = () => {
                   Nenhum produto com estoque baixo
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {lowStockPaged.map(product => (
-                    <div key={product.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">Código: {product.code}</p>
+                    <div key={product.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
+                      <div className="min-w-0 flex-1 mr-3">
+                        <p className="font-medium text-sm truncate">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">Cod: {product.code}</p>
                       </div>
-                      <div className="text-right">
-                        <p className={`font-bold ${product.stock <= 0 ? 'text-destructive' : 'text-amber-500'}`}>
+                      <div className="text-right shrink-0">
+                        <p className={cn(
+                          "font-bold text-sm",
+                          product.stock <= 0 ? 'text-destructive' : 'text-amber-500'
+                        )}>
                           {product.stock} {product.unit}
                         </p>
                       </div>
@@ -244,22 +244,22 @@ const Index = () => {
                   Nenhuma venda registrada
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {recentSales.map(sale => (
-                    <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div>
-                        <p className="font-medium">{sale.clientName || 'Cliente não identificado'}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
+                      <div className="min-w-0 flex-1 mr-3">
+                        <p className="font-medium text-sm truncate">{sale.clientName || 'Cliente nao identificado'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(sale.createdAt), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold">{formatCurrency(sale.total)}</p>
-                        <div className="flex gap-1 justify-end">
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-sm">{formatCurrency(sale.total)}</p>
+                        <div className="flex gap-1 justify-end mt-0.5">
                           {sale.status === 'crediario_pending' && (
-                            <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">Crediário</Badge>
+                            <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-600 px-1.5 py-0">Crediario</Badge>
                           )}
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                             {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
                           </Badge>
                         </div>

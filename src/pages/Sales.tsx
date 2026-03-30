@@ -38,15 +38,7 @@ import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { printReceipt, downloadReceipt } from '@/lib/generateReceipt';
-
-const paymentLabels: Record<string, string> = {
-  cash: 'Dinheiro',
-  credit: 'Crédito',
-  debit: 'Débito',
-  pix: 'PIX',
-  crediario: 'Crediário',
-  store_credit: 'Créd. Haver',
-};
+import { formatCurrency, paymentLabels } from '@/lib/formatters';
 
 export default function Sales() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -88,12 +80,7 @@ export default function Sales() {
     }
   });
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+
 
   const totalToday = sales
     .filter(s => new Date(s.createdAt).toDateString() === new Date().toDateString())

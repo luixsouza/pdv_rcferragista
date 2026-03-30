@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/formatters';
 import { ClientCombobox } from '@/components/ClientCombobox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -109,7 +110,7 @@ export default function POS() {
   const clientCreditUsed = selectedClient
     ? installments
         .filter(i => i.clientId === selectedClient && (i.status === 'open' || i.status === 'overdue'))
-        .reduce((sum, i) => sum + (i.amount - i.amountPaid), 0)
+        .reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0)
     : 0;
   const clientCreditAvailable = Math.max(0, clientCreditLimit - clientCreditUsed);
   const clientOverdueInstallments = selectedClient
@@ -131,12 +132,6 @@ export default function POS() {
     : null;
   const cardFeeInfo = cardFeePercent !== null ? calculateFee(total, cardFeePercent) : null;
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.productId === product.id);
