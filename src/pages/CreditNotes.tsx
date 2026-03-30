@@ -26,12 +26,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format, isBefore, startOfDay } from 'date-fns';
+import { format, isBefore, startOfDay, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { printCrediarioStatement, downloadCrediarioStatement } from '@/lib/generateCrediarioReceipt';
 import { formatCurrency, paymentLabels } from '@/lib/formatters';
+import { getStoreSettings } from '@/lib/storeInfo';
 
 export default function CreditNotes() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -71,6 +72,19 @@ export default function CreditNotes() {
       setInstallments(updatedInstallments);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const storeSettings = getStoreSettings();
+  const interestRate = storeSettings.crediarioInterestRate;
+
+  const calculateInterest = (inst: Installment): number => {
+    if (interestRate <= 0) return 0;
+    if (inst.status !== 'overdue') return 0;
+    const daysOverdue = differenceInDays(new Date(), new Date(inst.dueDate));
+    if (daysOverdue <= 0) return 0;
+    const monthsOverdue = daysOverdue / 30;
+    const remaining = inst.amount - inst.amountPaid - (inst.discountApplied || 0);
+    return remaining * (interestRate / 100) * monthsOverdue;
+  };
 
   // ---- Resumo calculations ----
   const resumoClientData = clients.find(c => c.id === resumoClient);
@@ -593,6 +607,12 @@ export default function CreditNotes() {
                             )}>
                               {inst.status === 'paid' ? 'Quitada' : formatCurrency(remaining)}
                             </p>
+                            {inst.status === 'overdue' && (() => {
+                              const interest = calculateInterest(inst);
+                              return interest > 0 ? (
+                                <p className="text-xs text-red-500">Juros: +{formatCurrency(interest)}</p>
+                              ) : null;
+                            })()}
                             {progress > 0 && inst.status !== 'paid' && (
                               <div className="w-20 h-1.5 bg-muted rounded-full mt-1 ml-auto">
                                 <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min(100, progress)}%` }} />
@@ -929,6 +949,15 @@ export default function CreditNotes() {
                   <span>Restante:</span>
                   <span>{formatCurrency(selectedInstallment.amount - selectedInstallment.amountPaid - (selectedInstallment.discountApplied || 0))}</span>
                 </div>
+                {selectedInstallment.status === 'overdue' && (() => {
+                  const interest = calculateInterest(selectedInstallment);
+                  return interest > 0 ? (
+                    <div className="flex justify-between text-sm text-red-500">
+                      <span>Juros ({interestRate}% a.m.):</span>
+                      <span>+{formatCurrency(interest)}</span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {/* Expandable sale items */}
