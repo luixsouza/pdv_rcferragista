@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product } from '@/types';
-import { Package, Plus, Search, Pencil, Trash2, RefreshCw, FileDown } from 'lucide-react';
+import { Package, Plus, Search, Pencil, Trash2, RefreshCw, FileDown, Percent } from 'lucide-react';
 import { exportToCSV } from '@/lib/csvExport';
 import { generateProductCode } from '@/lib/generateProductCode';
 import { formatCurrency } from '@/lib/formatters';
@@ -102,6 +102,10 @@ export default function Products() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState(emptyProduct);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkPercent, setBulkPercent] = useState(0);
+  const [bulkField, setBulkField] = useState<'price' | 'costPrice'>('price');
 
   const handleExport = () => {
     exportToCSV('produtos',
@@ -186,6 +190,10 @@ export default function Products() {
         description="Gerencie o catálogo de produtos da loja"
         action={
           <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkOpen(true)}>
+            <Percent className="h-4 w-4 mr-2" />
+            Ajuste em Massa
+          </Button>
           <Button variant="outline" onClick={handleExport}>
             <FileDown className="h-4 w-4 mr-2" />
             Exportar
@@ -413,6 +421,83 @@ export default function Products() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ajuste de Preços em Massa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select value={bulkCategory} onValueChange={setBulkCategory}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Campo</Label>
+              <Select value={bulkField} onValueChange={v => setBulkField(v as 'price' | 'costPrice')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="price">Preço de Venda</SelectItem>
+                  <SelectItem value="costPrice">Preço de Custo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Percentual de ajuste (%)</Label>
+              <Input type="number" step="0.1" value={bulkPercent}
+                onChange={e => setBulkPercent(parseFloat(e.target.value) || 0)}
+                onFocus={e => e.target.select()}
+                placeholder="Ex: 10 para +10%, -5 para -5%"
+              />
+              <p className="text-xs text-muted-foreground">
+                Positivo = aumento, Negativo = redução
+              </p>
+            </div>
+
+            {bulkCategory && bulkPercent !== 0 && (() => {
+              const affected = products.filter(p => p.category === bulkCategory);
+              return (
+                <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                  <p><strong>{affected.length}</strong> produto(s) serão afetados</p>
+                  <p className="text-muted-foreground">
+                    {bulkPercent > 0 ? 'Aumento' : 'Redução'} de {Math.abs(bulkPercent)}% no {bulkField === 'price' ? 'preço de venda' : 'preço de custo'}
+                  </p>
+                </div>
+              );
+            })()}
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setBulkOpen(false)}>Cancelar</Button>
+              <Button className="flex-1" disabled={!bulkCategory || bulkPercent === 0}
+                onClick={() => {
+                  const factor = 1 + (bulkPercent / 100);
+                  const now = new Date().toISOString();
+                  let count = 0;
+                  setProducts(products.map(p => {
+                    if (p.category !== bulkCategory) return p;
+                    count++;
+                    const newValue = Math.round(p[bulkField] * factor * 100) / 100;
+                    return { ...p, [bulkField]: Math.max(0, newValue), updatedAt: now };
+                  }));
+                  toast.success(`${count} produto(s) atualizados com ${bulkPercent > 0 ? '+' : ''}${bulkPercent}%`);
+                  setBulkOpen(false);
+                  setBulkPercent(0);
+                  setBulkCategory('');
+                }}
+              >
+                Aplicar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
