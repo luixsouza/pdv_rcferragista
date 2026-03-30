@@ -524,6 +524,21 @@ export default function POS() {
                value={selectedClient}
                onChange={setSelectedClient}
              />
+             {recentClients.length > 0 && !selectedClient && (
+               <div className="flex flex-wrap gap-1 mt-1">
+                 {recentClients.map(c => (
+                   <Button
+                     key={c.id}
+                     variant="ghost"
+                     size="sm"
+                     className="h-6 text-xs px-2"
+                     onClick={() => setSelectedClient(c.id)}
+                   >
+                     {c.name.split(' ')[0]}
+                   </Button>
+                 ))}
+               </div>
+             )}
           </div>
           <div className="md:col-span-3">
              <Popover open={openSearch} onOpenChange={setOpenSearch}>
