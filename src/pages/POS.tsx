@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Product, Client, Sale, SaleItem, PaymentEntry, Installment } from '@/types';
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/formatters';
+import { getStoreSettings } from '@/lib/storeInfo';
 import { ClientCombobox } from '@/components/ClientCombobox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -65,6 +66,8 @@ export default function POS() {
   const [discountValue, setDiscountValue] = useState(0);
   const [isPercentage, setIsPercentage] = useState(true);
 
+  const storeSettings = getStoreSettings();
+
   // Split payment state
   const [splitMode, setSplitMode] = useState(false);
   const [paymentEntries, setPaymentEntries] = useState<PaymentEntry[]>([
@@ -82,6 +85,23 @@ export default function POS() {
   // Search state
   const [openSearch, setOpenSearch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+
+  const recentClientIds = useMemo(() => {
+    const seen = new Map<string, number>();
+    [...sales].reverse().forEach(s => {
+      if (s.clientId && !seen.has(s.clientId)) {
+        seen.set(s.clientId, seen.size);
+      }
+    });
+    return Array.from(seen.entries())
+      .sort((a, b) => a[1] - b[1])
+      .slice(0, 5)
+      .map(([id]) => id);
+  }, [sales]);
+
+  const recentClients = recentClientIds
+    .map(id => clients.find(c => c.id === id))
+    .filter(Boolean) as Client[];
 
   const filteredProducts = products
     .filter(p =>
@@ -662,6 +682,29 @@ export default function POS() {
                      <CardTitle className="text-lg">Resumo</CardTitle>
                    </CardHeader>
                    <CardContent className="space-y-4">
+                      {/* Discount Presets */}
+                      {storeSettings.discountPresets.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {storeSettings.discountPresets.map((preset, idx) => (
+                            <Button
+                              key={idx}
+                              variant={isPercentage && discountValue === preset.percent ? "default" : "outline"}
+                              size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={() => { setIsPercentage(true); setDiscountValue(preset.percent); }}
+                            >
+                              {preset.label}
+                            </Button>
+                          ))}
+                          {discountValue > 0 && (
+                            <Button variant="ghost" size="sm" className="h-7 text-xs px-2"
+                              onClick={() => setDiscountValue(0)}>
+                              Limpar
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
                       {/* Discount Controls */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
