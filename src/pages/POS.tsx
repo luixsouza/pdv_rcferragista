@@ -370,13 +370,18 @@ export default function POS() {
         toast.error('Estoque insuficiente');
         return;
       }
+      const step = quantityStep(product.unit);
       setCart(cart.map(item =>
         item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, total: roundCurrency((item.quantity + 1) * item.unitPrice) }
+          ? { ...item, quantity: item.quantity + step, total: roundCurrency((item.quantity + step) * item.unitPrice) }
           : item
       ));
     } else {
-      if (effectiveStock < 1) {
+      // milheiro requires at least 1 whole unit (of 1000); all other units only
+      // require stock > 0 so that fractional remaining stock (e.g. 0.7 kg) can
+      // still be sold.
+      const stockIsInsufficient = isMilheiro ? effectiveStock < 1 : effectiveStock <= 0;
+      if (stockIsInsufficient) {
          toast.error('Estoque insuficiente');
          return;
       }
