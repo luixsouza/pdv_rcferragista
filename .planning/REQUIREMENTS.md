@@ -48,9 +48,9 @@
 
 ### Layout fiscal (NFe / NFCe — apenas visual)
 
-- [ ] **FISC-01**: A partir de uma venda, é possível gerar um PDF com o layout do cupom NFCe (DANFE-NFCe, 80mm), incluindo título oficial, área de chave de acesso, QR Code e altura dinâmica
+- [x] **FISC-01**: A partir de uma venda, é possível gerar um PDF com o layout do cupom NFCe (DANFE-NFCe, 80mm), incluindo título oficial, área de chave de acesso, QR Code e altura dinâmica
 - [ ] **FISC-02**: A partir de uma venda, é possível gerar um PDF com o layout do DANFE (NFe, A4), com os 8 quadros obrigatórios, tabela de produtos com colunas fiscais e código de barras
-- [ ] **FISC-03**: Ambos os documentos exibem de forma destacada o aviso "EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO – SEM VALOR FISCAL" e usam placeholders seguros para campos não computados (NCM, CFOP, CST, chave, protocolo)
+- [x] **FISC-03**: Ambos os documentos exibem de forma destacada o aviso "EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO – SEM VALOR FISCAL" e usam placeholders seguros para campos não computados (NCM, CFOP, CST, chave, protocolo)
 
 ## v2 Requirements
 
@@ -100,9 +100,9 @@
 | FRAC-02 | Phase 5 | Complete |
 | FRAC-03 | Phase 5 | Complete |
 | FRAC-04 | Phase 5 | Complete |
-| FISC-01 | Phase 6 | Pending |
+| FISC-01 | Phase 6 | Complete |
 | FISC-02 | Phase 6 | Pending |
-| FISC-03 | Phase 6 | Pending |
+| FISC-03 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 26 total
