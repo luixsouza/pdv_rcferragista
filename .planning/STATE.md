@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
+status: verifying
 stopped_at: Phase 03 Plan 01 complete — processRefund.ts pure module (EST-01/EST-02/EST-04)
-last_updated: "2026-06-20T15:18:51.091Z"
+last_updated: "2026-06-20T15:26:54.564Z"
 last_activity: 2026-06-20
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
-  percent: 33
+  completed_plans: 8
+  percent: 50
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-06-20)
 
 Phase: 03 (Estorno Correto) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-20
 
-Progress: [█████████░] 88%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [█████████░] 88%
 | Phase 02-credi-rio P02 | 12 | 2 tasks | 1 files |
 | Phase 02-credi-rio P03 | 15 | 2 tasks | 1 files |
 | Phase 03-estorno-correto P01 | 2 | 2 tasks | 2 files |
+| Phase 03 P02 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-01: crediarioPaid from installment.amountPaid sum (ground truth), not stale sale.crediarioPaid
 - [Phase ?]: 03-01: paidAmount = crediarioPaid + otherPaid for crediário to prevent under-refund on split sales
 - [Phase ?]: 03-01: cashRefundOut/cancelledInstallmentIds placed on Sale — mirrors ReturnRecord retrocompat pattern
+- [Phase ?]: non-crediario-cash-path
 
 ### Pending Todos
 
@@ -100,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-20T15:18:51.070Z
+Last session: 2026-06-20T15:26:54.538Z
 Stopped at: Phase 03 Plan 01 complete — processRefund.ts pure module (EST-01/EST-02/EST-04)
 Resume file: None
