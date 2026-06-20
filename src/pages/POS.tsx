@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Product, Client, Sale, SaleItem, PaymentEntry, Installment } from '@/types';
-import { ShoppingCart, Plus, Minus, Trash2, Search, CreditCard, Wallet, QrCode, Banknote, X, BookOpen, Gift, Split, AlertTriangle } from 'lucide-react';
+import { Product, Client, Sale, SaleItem, PaymentEntry, Installment, ReturnRecord } from '@/types';
+import { ShoppingCart, Plus, Minus, Trash2, Search, CreditCard, Wallet, QrCode, Banknote, X, BookOpen, Gift, Split, AlertTriangle, RotateCcw } from 'lucide-react';
 import { addMonths } from 'date-fns';
 import { CardBrand, CARD_BRAND_LABELS, getCardFee, calculateFee, hasDebit } from '@/lib/cardFees';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,14 @@ import { getStoreSettings } from '@/lib/storeInfo';
 import { ClientCombobox } from '@/components/ClientCombobox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { processReturn } from '@/lib/processReturn';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -60,8 +68,22 @@ export default function POS() {
   const [clients, setClients] = useLocalStorage<Client[]>('clients', []);
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
   const [installments, setInstallments] = useLocalStorage<Installment[]>('installments', []);
+  // DEV-01/02/03/04: returns storage for POS devolução entry point
+  const [returns, setReturns] = useLocalStorage<ReturnRecord[]>('returns', []);
 
   const [cart, setCart] = useState<SaleItem[]>([]);
+
+  // ---- Return-mode state (DEV-01) ----
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnSaleSearch, setReturnSaleSearch] = useState('');
+  const [returnSelectedSale, setReturnSelectedSale] = useState<Sale | null>(null);
+  const [returnItems, setReturnItems] = useState<{ item: SaleItem; quantity: number; selected: boolean }[]>([]);
+  // DEV-03: client association / inline registration
+  const [returnClientId, setReturnClientId] = useState('');
+  const [returnShowNewClient, setReturnShowNewClient] = useState(false);
+  const [returnNewClientName, setReturnNewClientName] = useState('');
+  const [returnNewClientDocument, setReturnNewClientDocument] = useState('');
+  const [returnNewClientPhone, setReturnNewClientPhone] = useState('');
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<Sale['paymentMethod']>('cash');
   const [discountValue, setDiscountValue] = useState(0);
@@ -103,6 +125,77 @@ export default function POS() {
   const recentClients = recentClientIds
     .map(id => clients.find(c => c.id === id))
     .filter(Boolean) as Client[];
+
+  // ---- Return helpers (DEV-01, T-04-08: double-return prevention) ----
+  // Mirrors Returns.tsx getReturnedQuantities: sum non-reversed ReturnRecord item quantities per productId for a sale
+  const getReturnedQuantities = (saleId: string): Record<string, number> => {
+    const saleReturns = returns.filter(r => r.originalSaleId === saleId && !r.reversedAt);
+    const quantities: Record<string, number> = {};
+    saleReturns.forEach(r => {
+      r.items.forEach(item => {
+        quantities[item.productId] = (quantities[item.productId] || 0) + item.quantity;
+      });
+    });
+    return quantities;
+  };
+
+  // DEV-01/DEV-06: eligible sales for return — completed, crediario_paid, crediario_pending (not refunded)
+  // crediario_pending included per DEV-06 consistency
+  const returnEligibleSales = useMemo(() => {
+    return sales.filter(
+      s => s.status === 'completed' || s.status === 'crediario_paid' || s.status === 'crediario_pending'
+    );
+  }, [sales]);
+
+  // Search by sale code or client name (min 2 chars, max 10 results) — mirrors Returns.tsx
+  const returnSearchedSales = useMemo(() => {
+    const q = returnSaleSearch.trim();
+    if (q.length < 2) return [];
+    return returnEligibleSales
+      .filter(s =>
+        s.id.toUpperCase().includes(q.toUpperCase()) ||
+        (s.clientName && s.clientName.toLowerCase().includes(q.toLowerCase()))
+      )
+      .slice(0, 10);
+  }, [returnSaleSearch, returnEligibleSales]);
+
+  // Select a sale in the return dialog — pre-fills returnItems with maxReturnable quantities
+  const handleReturnSelectSale = (sale: Sale) => {
+    const returnedQtys = getReturnedQuantities(sale.id);
+    setReturnSelectedSale(sale);
+    setReturnClientId(sale.clientId || '');
+    setReturnItems(
+      sale.items
+        .map(item => {
+          const alreadyReturned = returnedQtys[item.productId] || 0;
+          const maxReturnable = item.quantity - alreadyReturned;
+          return {
+            item,
+            quantity: maxReturnable > 0 ? maxReturnable : 0,
+            selected: maxReturnable > 0,
+          };
+        })
+        .filter(ri => {
+          const alreadyReturned = returnedQtys[ri.item.productId] || 0;
+          return ri.item.quantity - alreadyReturned > 0;
+        })
+    );
+    setReturnShowNewClient(false);
+    setReturnNewClientName('');
+    setReturnNewClientDocument('');
+    setReturnNewClientPhone('');
+  };
+
+  const resetReturnDialog = () => {
+    setReturnSelectedSale(null);
+    setReturnItems([]);
+    setReturnClientId('');
+    setReturnSaleSearch('');
+    setReturnShowNewClient(false);
+    setReturnNewClientName('');
+    setReturnNewClientDocument('');
+    setReturnNewClientPhone('');
+  };
 
   const filteredProducts = products
     .filter(p =>
@@ -154,6 +247,114 @@ export default function POS() {
     : null;
   const cardFeeInfo = cardFeePercent !== null ? calculateFee(total, cardFeePercent) : null;
 
+
+  // ---- DEV-03: inline client registration ----
+  const handleReturnRegisterClient = () => {
+    if (!returnNewClientName.trim()) {
+      toast.error('O nome do cliente é obrigatório');
+      return;
+    }
+    const now = new Date().toISOString();
+    const newClient: Client = {
+      name: returnNewClientName.trim(),
+      document: returnNewClientDocument.trim(),
+      phone: returnNewClientPhone.trim(),
+      email: '',
+      address: '',
+      city: '',
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    setClients([...clients, newClient]);
+    setReturnClientId(newClient.id);
+    setReturnShowNewClient(false);
+    setReturnNewClientName('');
+    setReturnNewClientDocument('');
+    setReturnNewClientPhone('');
+    toast.success(`Cliente "${newClient.name}" cadastrado`);
+  };
+
+  // ---- DEV-01/02/03/04: confirm return via processReturn (T-04-07 capping, T-04-08 double-return) ----
+  const handleConfirmReturn = () => {
+    if (!returnSelectedSale) return;
+
+    const itemsToReturn = returnItems.filter(ri => ri.selected && ri.quantity > 0);
+    if (itemsToReturn.length === 0) {
+      toast.error('Selecione pelo menos um item para devolver');
+      return;
+    }
+
+    // T-04-08: validate against maxReturnable
+    const returnedQtys = getReturnedQuantities(returnSelectedSale.id);
+    for (const ri of itemsToReturn) {
+      const alreadyReturned = returnedQtys[ri.item.productId] || 0;
+      const maxReturnable = ri.item.quantity - alreadyReturned;
+      if (ri.quantity > maxReturnable) {
+        toast.error(`Quantidade máxima para "${ri.item.productName}" é ${maxReturnable}`);
+        return;
+      }
+    }
+
+    const resolvedClient = clients.find(c => c.id === returnClientId);
+    const resolvedClientName = resolvedClient?.name || returnSelectedSale.clientName || 'Sem cliente';
+
+    // T-04-07: delegate all financial mutation to processReturn (never compute creditGenerated raw here)
+    // D-01/D-02/D-03/D-04: haver modality only in POS (abatimento lives on /returns per CONTEXT)
+    const { returnRecord, updatedProducts, updatedClients, allItemsReturned, cancelledInstallmentIds } =
+      processReturn({
+        sale: returnSelectedSale,
+        itemsToReturn: itemsToReturn.map(ri => ({
+          productId: ri.item.productId,
+          productName: ri.item.productName,
+          quantity: ri.quantity,
+          unitPrice: ri.item.unitPrice,
+          costPrice: ri.item.costPrice,
+        })),
+        products,
+        clients,
+        clientId: returnClientId || undefined,
+        clientName: resolvedClientName,
+        alreadyReturnedQtys: returnedQtys,
+        installments, // DEV-04: required for haver capping via processReturn
+      });
+
+    setProducts(updatedProducts);
+    setClients(updatedClients);
+    setReturns([...returns, returnRecord]);
+
+    // D-04: cancel open/overdue installments on full crediário return
+    // Uses setInstallments confirmed available (W-7) at line 62
+    if (cancelledInstallmentIds.length > 0) {
+      setInstallments(
+        installments.map(i =>
+          cancelledInstallmentIds.includes(i.id) ? { ...i, status: 'cancelled' as const } : i
+        )
+      );
+    }
+
+    // Mark sale as refunded when all items returned
+    if (allItemsReturned) {
+      setSales(sales.map(s =>
+        s.id === returnSelectedSale.id ? { ...s, status: 'refunded' as const } : s
+      ));
+    }
+
+    resetReturnDialog();
+    setReturnDialogOpen(false);
+
+    // Toast uses returnRecord.creditGenerated (capped value, not raw item totals) — T-04-07
+    if (returnClientId) {
+      toast.success(
+        `Devolução registrada! ${returnRecord.creditGenerated > 0
+          ? `${formatCurrency(returnRecord.creditGenerated)} adicionado ao haver do cliente.`
+          : 'Nenhum haver gerado (crediário sem pagamentos).'}`
+      );
+    } else {
+      // DEV-02: no-client return — stock only
+      toast.success('Devolução registrada! Estoque restaurado. (Sem cliente, haver não gerado)');
+    }
+  };
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.productId === product.id);
@@ -523,6 +724,213 @@ export default function POS() {
 
   return (
     <Layout>
+      {/* ---- Devolução Dialog (DEV-01/02/03/04) ---- */}
+      <Dialog open={returnDialogOpen} onOpenChange={(open) => { setReturnDialogOpen(open); if (!open) resetReturnDialog(); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" />
+              Devolução — PDV
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Step 1: Find sale (DEV-01) */}
+          {!returnSelectedSale && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Busque a venda pelo código ou nome do cliente:
+              </p>
+              <Input
+                placeholder="Código da venda ou nome do cliente..."
+                value={returnSaleSearch}
+                onChange={e => setReturnSaleSearch(e.target.value)}
+                autoFocus
+              />
+              {returnSaleSearch.trim().length >= 2 && returnSearchedSales.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-3">Nenhuma venda elegível encontrada</p>
+              )}
+              <div className="space-y-2 max-h-64 overflow-auto">
+                {returnSearchedSales.map(sale => (
+                  <div
+                    key={sale.id}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                    onClick={() => handleReturnSelectSale(sale)}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">#{sale.id.slice(0, 8).toUpperCase()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {sale.clientName || 'Sem cliente'} — {formatCurrency(sale.total)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {sale.status === 'crediario_pending' ? 'Crediário em aberto' : sale.status === 'crediario_paid' ? 'Crediário quitado' : 'Finalizada'}
+                      </p>
+                    </div>
+                    <span className="font-bold text-sm">{formatCurrency(sale.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Item checklist + client association (DEV-02/03/04) */}
+          {returnSelectedSale && (
+            <div className="space-y-4">
+              {/* Sale header */}
+              <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                <div>
+                  <p className="text-sm font-medium">#{returnSelectedSale.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(returnSelectedSale.total)}</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => { setReturnSelectedSale(null); setReturnSaleSearch(''); }}>
+                  Trocar
+                </Button>
+              </div>
+
+              {/* Item checklist */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Itens a devolver:</p>
+                {returnItems.map((ri, index) => (
+                  <div key={ri.item.productId} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <Checkbox
+                      checked={ri.selected}
+                      onCheckedChange={(checked) => {
+                        setReturnItems(returnItems.map((item, i) =>
+                          i === index ? { ...item, selected: !!checked } : item
+                        ));
+                      }}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{ri.item.productName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(ri.item.unitPrice)} /un
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Qtd:</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        max={ri.item.quantity}
+                        value={ri.quantity}
+                        disabled={!ri.selected}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val > 0) {
+                            const returnedQtys = getReturnedQuantities(returnSelectedSale.id);
+                            const maxReturnable = ri.item.quantity - (returnedQtys[ri.item.productId] || 0);
+                            setReturnItems(returnItems.map((item, i) =>
+                              i === index ? { ...item, quantity: Math.min(val, maxReturnable) } : item
+                            ));
+                          }
+                        }}
+                        onFocus={e => e.target.select()}
+                        className="w-16 h-8 text-center"
+                      />
+                    </div>
+                    <span className="font-medium text-sm w-20 text-right">
+                      {ri.selected ? formatCurrency(ri.quantity * ri.item.unitPrice) : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* DEV-03: Client association section */}
+              <div className="space-y-2 border rounded-lg p-3">
+                <p className="text-sm font-medium">Cliente (opcional para haver)</p>
+                <ClientCombobox
+                  clients={clients}
+                  value={returnClientId}
+                  onChange={setReturnClientId}
+                />
+                {!returnClientId && !returnShowNewClient && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-amber-600">
+                      Sem cliente: estoque será restaurado, mas nenhum haver será gerado (DEV-02).
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => setReturnShowNewClient(true)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Cadastrar novo cliente
+                    </Button>
+                  </div>
+                )}
+                {/* Inline client registration (DEV-03) */}
+                {returnShowNewClient && (
+                  <div className="space-y-2 border-t pt-2">
+                    <p className="text-xs font-medium">Novo cliente:</p>
+                    <Input
+                      placeholder="Nome (obrigatório)"
+                      value={returnNewClientName}
+                      onChange={e => setReturnNewClientName(e.target.value)}
+                    />
+                    <Input
+                      placeholder="CPF/CNPJ (opcional)"
+                      value={returnNewClientDocument}
+                      onChange={e => setReturnNewClientDocument(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Telefone (opcional)"
+                      value={returnNewClientPhone}
+                      onChange={e => setReturnNewClientPhone(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setReturnShowNewClient(false)}>
+                        Cancelar
+                      </Button>
+                      <Button size="sm" className="flex-1" onClick={handleReturnRegisterClient}>
+                        Cadastrar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Return total preview */}
+              <div className="border-t pt-3 space-y-1">
+                <div className="flex justify-between text-base font-bold">
+                  <span>Total a devolver:</span>
+                  <span className="text-green-600">
+                    {formatCurrency(
+                      returnItems
+                        .filter(ri => ri.selected && ri.quantity > 0)
+                        .reduce((sum, ri) => sum + ri.quantity * ri.item.unitPrice, 0)
+                    )}
+                  </span>
+                </div>
+                {returnClientId && (
+                  <p className="text-xs text-muted-foreground">
+                    Haver gerado = valor capped pelo proporcionalmente pago (DEV-04).
+                  </p>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setReturnDialogOpen(false); resetReturnDialog(); }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleConfirmReturn}
+                  disabled={returnItems.filter(ri => ri.selected && ri.quantity > 0).length === 0}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Confirmar Devolução
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col h-[calc(100vh-100px)] gap-4 overflow-hidden">
         {/* Top Bar: Search & Client */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
@@ -548,7 +956,18 @@ export default function POS() {
                </div>
              )}
           </div>
-          <div className="md:col-span-3">
+          {/* DEV-01: Devolução trigger button — opens return dialog from POS */}
+          <div className="md:col-span-1 flex items-start">
+            <Button
+              variant="outline"
+              className="w-full h-10 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+              onClick={() => setReturnDialogOpen(true)}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Devolução
+            </Button>
+          </div>
+          <div className="md:col-span-2">
              <Popover open={openSearch} onOpenChange={setOpenSearch}>
                <PopoverTrigger asChild>
                  <Button
