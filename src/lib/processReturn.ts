@@ -105,7 +105,7 @@ export function processReturn(input: ProcessReturnInput): ProcessReturnResult {
     const returnItem = itemsToReturn.find(ri => ri.productId === product.id);
     if (!returnItem) return product;
     const restock = product.unit === 'mil'
-      ? returnItem.quantity / 1000
+      ? roundCurrency(returnItem.quantity / 1000)
       : returnItem.quantity;
     return { ...product, stock: product.stock + restock, updatedAt: now };
   });
