@@ -114,7 +114,7 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 06-01-PLAN.md — Instala bwip-js+qrcode, helpers fiscais (placeholders/barcode/QR) e gerador NFCe 80mm com QR e disclaimer (FISC-01, FISC-03)
-- [ ] 06-02-PLAN.md — Gerador DANFE A4 com 8 quadros, tabela fiscal zerada, barcode CODE-128 e paginação (FISC-02, FISC-03)
+- [x] 06-02-PLAN.md — Gerador DANFE A4 com 8 quadros, tabela fiscal zerada, barcode CODE-128 e paginação (FISC-02, FISC-03)
 - [ ] 06-03-PLAN.md — Ações "Gerar NFCe (cupom)" e "Gerar DANFE (NFe)" em Sales.tsx, adicionais ao cupom não fiscal (FISC-01, FISC-02)
 **UI hint**: yes
 
@@ -131,4 +131,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
 | 4. Devolucao Completa | 4/4 | Complete   | 2026-06-20 |
 | 5. Venda Fracionada | 4/4 | Complete   | 2026-06-20 |
-| 6. Layout Fiscal | 1/3 | In Progress|  |
+| 6. Layout Fiscal | 2/3 | In Progress|  |
