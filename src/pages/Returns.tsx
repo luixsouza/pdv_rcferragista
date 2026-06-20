@@ -345,8 +345,11 @@ export default function Returns() {
       r.id === ret.id ? { ...r, reversedAt: new Date().toISOString() } : r
     );
 
-    // 4. If original sale was marked refunded, restore its status
+    // 4. If original sale was marked refunded, restore its status.
+    // CR-04 fix: also clear cancelledInstallmentIds so estorno is unblocked after reversal.
     const originalSale = sales.find(s => s.id === ret.originalSaleId);
+    const hasCancelledInstallments = ret.cancelledInstallmentIds && ret.cancelledInstallmentIds.length > 0;
+
     if (originalSale && originalSale.status === 'refunded') {
       const otherActiveReturns = updatedReturns.filter(r => r.originalSaleId === ret.originalSaleId && !r.reversedAt);
       const returnedQtys: Record<string, number> = {};
@@ -356,9 +359,39 @@ export default function Returns() {
       const allStillReturned = originalSale.items.every(item => (returnedQtys[item.productId] || 0) >= item.quantity);
 
       if (!allStillReturned) {
-        const restoredStatus = originalSale.crediarioPaid !== undefined ? 'crediario_paid' : 'completed';
-        setSales(sales.map(s => s.id === ret.originalSaleId ? { ...s, status: restoredStatus as Sale['status'] } : s));
+        // CR-01 fix: use the sale's pre-return status as discriminant.
+        // crediarioPaid !== undefined is always true for any crediário sale (initialized to 0),
+        // so we must discriminate on the ORIGINAL sale.status instead.
+        // After reversal the installments are being restored, so check if any remain open/overdue.
+        const saleInstallments = installments.filter(i => i.saleId === ret.originalSaleId);
+        const hasOpenInstallments = saleInstallments.some(i => {
+          // Installments being restored from 'cancelled' will be 'open' after this reversal
+          const willBeRestored = hasCancelledInstallments && ret.cancelledInstallmentIds!.includes(i.id);
+          if (willBeRestored) return true;
+          const effective = getEffectiveStatus(i);
+          return effective === 'open' || effective === 'overdue';
+        });
+        const restoredStatus: Sale['status'] = hasOpenInstallments
+          ? 'crediario_pending'
+          : originalSale.status === 'crediario_paid' || originalSale.crediarioPaid
+            ? 'crediario_paid'
+            : 'completed';
+
+        // CR-04: clear cancelledInstallmentIds so estorno is not permanently blocked
+        setSales(sales.map(s =>
+          s.id === ret.originalSaleId
+            ? { ...s, status: restoredStatus, cancelledInstallmentIds: undefined }
+            : s
+        ));
       }
+    } else if (hasCancelledInstallments) {
+      // CR-04: partial-return reversal path — sale may not be 'refunded' but still had
+      // cancelledInstallmentIds set; clear them so estorno is unblocked after reversal.
+      setSales(sales.map(s =>
+        s.id === ret.originalSaleId
+          ? { ...s, cancelledInstallmentIds: undefined }
+          : s
+      ));
     }
 
     // 5. D-07: Restore cancelled installments to 'open' (overdue re-evaluated on next mount via getEffectiveStatus)
