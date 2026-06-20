@@ -111,7 +111,11 @@ Plans:
   2. A partir da tela de Vendas, o operador consegue gerar o DANFE A4 com os 8 quadros obrigatórios preenchidos, tabela de produtos com colunas fiscais (NCM, CST, CFOP, Qtd, Vlr Unit, Vlr Total, BC ICMS, Alíq ICMS) e código de barras CODE-128C
   3. Ambos os documentos exibem de forma destacada o aviso "NF-E EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL" (NFe) / "EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO – SEM VALOR FISCAL" (NFCe), tornando inequívoco que o documento não é autorizado
   4. Campos fiscais indisponíveis (NCM, CFOP, CST, chave de acesso, protocolo) são preenchidos com placeholders seguros ("00000000", "SEM PROTOCOLO", "0000000000000000000000000000000000000000000") em vez de ficarem em branco ou quebrarem o layout
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 06-01-PLAN.md — Instala bwip-js+qrcode, helpers fiscais (placeholders/barcode/QR) e gerador NFCe 80mm com QR e disclaimer (FISC-01, FISC-03)
+- [ ] 06-02-PLAN.md — Gerador DANFE A4 com 8 quadros, tabela fiscal zerada, barcode CODE-128 e paginação (FISC-02, FISC-03)
+- [ ] 06-03-PLAN.md — Ações "Gerar NFCe (cupom)" e "Gerar DANFE (NFe)" em Sales.tsx, adicionais ao cupom não fiscal (FISC-01, FISC-02)
 **UI hint**: yes
 
 ## Progress
@@ -127,4 +131,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
 | 4. Devolucao Completa | 4/4 | Complete   | 2026-06-20 |
 | 5. Venda Fracionada | 4/4 | Complete   | 2026-06-20 |
-| 6. Layout Fiscal | 0/? | Not started | - |
+| 6. Layout Fiscal | 0/3 | Planned | - |
