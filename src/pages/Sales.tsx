@@ -274,7 +274,7 @@ export default function Sales() {
     toast({
       title: "Devolução registrada",
       description: hasClient
-        ? `${formatCurrency(returnTotal)} adicionado ao crédito em haver do cliente.`
+        ? `${formatCurrency(returnRecord.totalRefunded)} adicionado ao crédito em haver do cliente.`
         : `Estoque restaurado. (Sem cliente, crédito não gerado)`,
     });
   };
