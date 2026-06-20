@@ -89,30 +89,6 @@ function drawDisclaimerBand(doc: jsPDF, y: number): void {
   doc.setTextColor(0, 0, 0);
 }
 
-/**
- * Draws the repeating page header: disclaimer band + barcode strip (access key).
- * Used on page 1 and on every overflow page.
- *
- * @param doc        The jsPDF document.
- * @param barcodeUrl CODE-128 PNG data URL (already generated).
- * @param pageNum    Current page number (1-based), for "Folha X/Y" numbering.
- * @param totalPages Estimated total pages (0 if unknown on first pass).
- * @returns          The y coordinate immediately after the header block.
- */
-function drawPageHeader(
-  doc: jsPDF,
-  barcodeUrl: string,
-  pageNum: number,
-  totalPages: number
-): number {
-  let y = MARGIN;
-
-  // ── Disclaimer band ────────────────────────────────────────────────────────
-  drawDisclaimerBand(doc, y);
-  y += DISCLAIMER_H;
-
-  return y;
-}
 
 // ── Main generator ────────────────────────────────────────────────────────────
 
