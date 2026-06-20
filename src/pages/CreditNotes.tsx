@@ -56,6 +56,10 @@ export default function CreditNotes() {
   // Resumo tab client
   const [resumoClient, setResumoClient] = useState('');
 
+  // Interest charging state: tracks how much interest the operator explicitly opted to charge.
+  // Default 0 (not charged). Reset whenever the payment dialog opens or closes.
+  const [chargedInterest, setChargedInterest] = useState(0);
+
 
 
   // Auto-update overdue installments on mount
@@ -178,9 +182,10 @@ export default function CreditNotes() {
   const openPaymentDialog = (inst: Installment) => {
     const remaining = inst.amount - inst.amountPaid - (inst.discountApplied || 0);
     setSelectedInstallment(inst);
-    setPaymentAmount(remaining);
+    setPaymentAmount(remaining); // Interest is NEVER pre-applied (CRED-03: opt-in only)
     setPaymentMethod('cash');
     setShowSaleItems(false);
+    setChargedInterest(0); // Reset: operator must explicitly click "Cobrar juros"
   };
 
   const handlePayment = () => {
@@ -195,16 +200,23 @@ export default function CreditNotes() {
       return;
     }
 
-    if (paymentAmount > remaining + 0.01) {
-      toast.error(`Valor excede o saldo da parcela: ${formatCurrency(remaining)}`);
+    // Over-payment guard: allow up to remaining + chargedInterest + 0.01 tolerance.
+    // When no interest was charged, chargedInterest is 0 so the cap equals remaining + 0.01
+    // (same as before). This prevents silent over-collection (T-02-05).
+    const maxAllowed = remaining + chargedInterest + 0.01;
+    if (paymentAmount > maxAllowed) {
+      toast.error(`Valor excede o saldo${chargedInterest > 0 ? ' + juros' : ''} da parcela: ${formatCurrency(remaining + chargedInterest)}`);
       return;
     }
 
     const now = new Date().toISOString();
-    const newAmountPaid = selectedInstallment.amountPaid + paymentAmount;
+    // Principal portion: only the installment balance increases by principal, not by interest.
+    // This prevents amountPaid from exceeding installment.amount (T-02-05, CRED-03).
+    const principalPortion = Math.min(paymentAmount, remaining);
+    const newAmountPaid = selectedInstallment.amountPaid + principalPortion;
     const isFullyPaid = newAmountPaid >= effectiveAmount - 0.01;
 
-    // Create credit payment record
+    // Create credit payment record — record interest auditably when operator charged it (T-02-06).
     const payment: CreditPayment = {
       id: crypto.randomUUID(),
       saleId: selectedInstallment.saleId,
@@ -213,6 +225,7 @@ export default function CreditNotes() {
       clientName: selectedInstallment.clientName,
       amount: paymentAmount,
       paymentMethod,
+      ...(chargedInterest > 0 ? { interestAmount: chargedInterest } : {}),
       createdAt: now
     };
 
@@ -234,7 +247,8 @@ export default function CreditNotes() {
     // Update sale crediarioPaid and check if all installments are paid
     const saleInstallments = updatedInstallments.filter(i => i.saleId === selectedInstallment.saleId && i.number > 0);
     const allPaid = saleInstallments.every(i => i.status === 'paid' || (i.id === selectedInstallment.id && isFullyPaid));
-    const totalPaidOnSale = saleInstallments.reduce((sum, i) => {
+    // Sum installment amountPaid values (principal only) — interest is added separately below.
+    const totalPrincipalOnSale = saleInstallments.reduce((sum, i) => {
       if (i.id === selectedInstallment.id) return sum + newAmountPaid;
       return sum + i.amountPaid;
     }, 0);
@@ -243,27 +257,32 @@ export default function CreditNotes() {
     const entryInstallment = updatedInstallments.find(i => i.saleId === selectedInstallment.saleId && i.number === 0);
     const entryPaid = entryInstallment?.amountPaid || 0;
 
+    // sale.crediarioPaid reflects the FULL amount collected (principal + interest) so the
+    // operator can see what was actually received. Installment.amountPaid only ever holds
+    // the principal portion (interest not capitalized — CRED-03, deferred "Juros compostos").
     const updatedSales = sales.map(s => {
       if (s.id !== selectedInstallment.saleId) return s;
       return {
         ...s,
-        crediarioPaid: totalPaidOnSale + entryPaid,
+        crediarioPaid: totalPrincipalOnSale + entryPaid + chargedInterest,
         status: allPaid ? 'crediario_paid' as const : 'crediario_pending' as const,
         paidAt: allPaid ? now : undefined,
       };
     });
     setSales(updatedSales);
 
+    setChargedInterest(0); // Reset after successful payment
     setSelectedInstallment(null);
 
+    const interestNote = chargedInterest > 0 ? ` (incl. ${formatCurrency(chargedInterest)} de juros)` : '';
     if (isFullyPaid) {
       if (allPaid) {
-        toast.success('Crediário quitado! Todas as parcelas foram pagas.');
+        toast.success(`Crediário quitado! Todas as parcelas foram pagas.${interestNote}`);
       } else {
-        toast.success(`Parcela ${selectedInstallment.number}/${selectedInstallment.totalInstallments} quitada!`);
+        toast.success(`Parcela ${selectedInstallment.number}/${selectedInstallment.totalInstallments} quitada!${interestNote}`);
       }
     } else {
-      toast.success(`Pagamento de ${formatCurrency(paymentAmount)} registrado na parcela ${selectedInstallment.number}/${selectedInstallment.totalInstallments}`);
+      toast.success(`Pagamento de ${formatCurrency(paymentAmount)} registrado na parcela ${selectedInstallment.number}/${selectedInstallment.totalInstallments}${interestNote}`);
     }
   };
 
@@ -1006,7 +1025,7 @@ export default function CreditNotes() {
       </Dialog>
 
       {/* Payment Dialog */}
-      <Dialog open={!!selectedInstallment} onOpenChange={() => setSelectedInstallment(null)}>
+      <Dialog open={!!selectedInstallment} onOpenChange={() => { setSelectedInstallment(null); setChargedInterest(0); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Registrar Pagamento</DialogTitle>
@@ -1050,7 +1069,7 @@ export default function CreditNotes() {
                   <span>Restante:</span>
                   <span>{formatCurrency(selectedInstallment.amount - selectedInstallment.amountPaid - (selectedInstallment.discountApplied || 0))}</span>
                 </div>
-                {selectedInstallment.status === 'overdue' && (() => {
+                {getEffectiveStatus(selectedInstallment) === 'overdue' && (() => {
                   const interest = calculateInterest(selectedInstallment);
                   return interest > 0 ? (
                     <div className="flex justify-between text-sm text-red-500">
@@ -1060,6 +1079,43 @@ export default function CreditNotes() {
                   ) : null;
                 })()}
               </div>
+
+              {/* Explicit "Cobrar juros" action — shown only for effectively-overdue installments with interest > 0.
+                  Interest is NEVER pre-applied: the operator must click this button to opt in (CRED-03). */}
+              {(() => {
+                if (getEffectiveStatus(selectedInstallment) !== 'overdue') return null;
+                const interest = calculateInterest(selectedInstallment);
+                if (interest <= 0) return null;
+                const remaining = selectedInstallment.amount - selectedInstallment.amountPaid - (selectedInstallment.discountApplied || 0);
+                return (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                    <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-red-700 dark:text-red-300">Parcela vencida</p>
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        Juros calculados: {formatCurrency(interest)}
+                      </p>
+                      {chargedInterest > 0 && (
+                        <p className="text-xs text-red-700 dark:text-red-300 font-medium mt-0.5">
+                          Juros inclusos no pagamento: {formatCurrency(chargedInterest)}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={chargedInterest > 0 ? "default" : "outline"}
+                      className={chargedInterest > 0 ? "bg-red-600 hover:bg-red-700 text-white shrink-0" : "border-red-400 text-red-700 hover:bg-red-100 shrink-0"}
+                      onClick={() => {
+                        const newAmount = roundCurrency(remaining + interest);
+                        setPaymentAmount(newAmount);
+                        setChargedInterest(interest);
+                      }}
+                    >
+                      Cobrar juros
+                    </Button>
+                  </div>
+                );
+              })()}
 
               {/* Expandable sale items */}
               {(() => {
@@ -1106,6 +1162,11 @@ export default function CreditNotes() {
                   }}
                   onFocus={e => e.target.select()}
                 />
+                {chargedInterest > 0 && (
+                  <p className="text-xs text-red-600">
+                    Inclui {formatCurrency(chargedInterest)} de juros (saldo + juros)
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
