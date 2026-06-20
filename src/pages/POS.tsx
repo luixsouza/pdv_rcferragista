@@ -144,7 +144,7 @@ export default function POS() {
     ? paymentEntries.filter(e => e.method === 'crediario').reduce((s, e) => s + e.amount, 0)
     : (paymentMethod === 'crediario' ? total : 0);
   const crediarioFinanced = Math.max(0, crediarioTotal - entryAmount);
-  const installmentValue = installmentCount > 0 ? crediarioFinanced / installmentCount : 0;
+  const installmentValue = installmentCount > 0 ? roundCurrency(crediarioFinanced / installmentCount) : 0;
 
   // Card fee calculations
   const isCardPayment = !splitMode && (paymentMethod === 'credit' || paymentMethod === 'debit');
