@@ -13,7 +13,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { printQuote, downloadQuote } from '@/lib/generateQuote';
 import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, roundCurrency } from '@/lib/formatters';
+import { quantityStep, parseQuantity, clampQuantityForUnit } from '@/lib/units';
 import {
   Command,
   CommandEmpty,
@@ -72,7 +73,7 @@ export default function Quotes() {
       }
       setCart(cart.map(item =>
         item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.unitPrice }
+          ? { ...item, quantity: item.quantity + 1, total: roundCurrency((item.quantity + 1) * item.unitPrice) }
           : item
       ));
     } else {
@@ -85,7 +86,7 @@ export default function Quotes() {
         quantity: 1,
         unitPrice: unitPrice,
         costPrice: costPrice,
-        total: unitPrice
+        total: roundCurrency(unitPrice)
       }]);
     }
     toast.success(`${product.name} adicionado`);
@@ -96,26 +97,27 @@ export default function Quotes() {
   const updateQuantity = (productId: string, delta: number) => {
     const product = products.find(p => p.id === productId);
     const item = cart.find(i => i.productId === productId);
-    
+
     if (!product || !item) return;
 
     const isMilheiro = product.unit === 'mil';
     const effectiveStock = isMilheiro ? product.stock * 1000 : product.stock;
 
-    const newQuantity = item.quantity + delta;
-    
+    // Round to 2 decimal places to avoid float drift (e.g. 0.1 + 0.2 = 0.30000000000000004)
+    const newQuantity = Math.round((item.quantity + delta) * 100) / 100;
+
     if (newQuantity <= 0) {
       setCart(cart.filter(i => i.productId !== productId));
       return;
     }
-    
+
     if (newQuantity > effectiveStock) {
        toast.warning('Atenção: Quantidade excede o estoque atual');
     }
 
     setCart(cart.map(i =>
       i.productId === productId
-        ? { ...i, quantity: newQuantity, total: newQuantity * i.unitPrice }
+        ? { ...i, quantity: newQuantity, total: roundCurrency(newQuantity * i.unitPrice) }
         : i
     ));
   };
@@ -127,18 +129,21 @@ export default function Quotes() {
     const isMilheiro = product.unit === 'mil';
     const effectiveStock = isMilheiro ? product.stock * 1000 : product.stock;
 
-    if (newQuantity <= 0) {
+    // Clamp to integer for discrete units; preserve decimals for fractional units
+    const clampedQuantity = clampQuantityForUnit(newQuantity, product.unit);
+
+    if (clampedQuantity <= 0) {
       setCart(cart.filter(i => i.productId !== productId));
       return;
     }
-    
-    if (newQuantity > effectiveStock) {
+
+    if (clampedQuantity > effectiveStock) {
        toast.warning('Atenção: Quantidade excede o estoque atual');
     }
 
     setCart(cart.map(i =>
       i.productId === productId
-        ? { ...i, quantity: newQuantity, total: newQuantity * i.unitPrice }
+        ? { ...i, quantity: clampedQuantity, total: roundCurrency(clampedQuantity * i.unitPrice) }
         : i
     ));
   };
@@ -296,32 +301,41 @@ export default function Quotes() {
                                   </div>
                                   
                                   <div className="col-span-3 md:col-span-2 flex items-center justify-center gap-1">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => updateQuantity(item.productId, -1)}
-                                      >
-                                        <Minus className="h-3 w-3" />
-                                      </Button>
-                                      <Input
-                                        type="number"
-                                        className="h-8 w-14 text-center p-0"
-                                        value={item.quantity}
-                                        onChange={(e) => {
-                                          const val = parseInt(e.target.value);
-                                          if (!isNaN(val)) updateItemQuantity(item.productId, val);
-                                        }}
-                                        onFocus={(e) => e.target.select()}
-                                      />
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => updateQuantity(item.productId, 1)}
-                                      >
-                                        <Plus className="h-3 w-3" />
-                                      </Button>
+                                    {(() => {
+                                      const step = quantityStep(products.find(p => p.id === item.productId)?.unit ?? '');
+                                      return (
+                                        <>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => updateQuantity(item.productId, -step)}
+                                          >
+                                            <Minus className="h-3 w-3" />
+                                          </Button>
+                                          <Input
+                                            type="number"
+                                            className="h-8 w-14 text-center p-0"
+                                            value={item.quantity}
+                                            min="0"
+                                            step={step}
+                                            onChange={(e) => {
+                                              const val = parseQuantity(e.target.value);
+                                              if (!isNaN(val)) updateItemQuantity(item.productId, val);
+                                            }}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => updateQuantity(item.productId, step)}
+                                          >
+                                            <Plus className="h-3 w-3" />
+                                          </Button>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                   
                                   <div className="col-span-2 text-right hidden md:block text-sm">
