@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 01 Plan 01 complete — roundCurrency + ReturnRecord.cancelledInstallmentIds + centavo-correct POS"
-last_updated: "2026-06-20T14:05:51Z"
-last_activity: "2026-06-20 -- Completed 01-01 (roundCurrency + type changes + POS rounding)"
+stopped_at: "Phase 01 Plan 02 complete — PDF dynamic height for receipt, refund receipt and quote"
+last_updated: "2026-06-20T14:18:00Z"
+last_activity: "2026-06-20 -- Completed 01-02 (dynamic-height PDFs: generateReceipt, generateRefundReceipt, generateQuotePDF)"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 5
+  completed_plans: 2
+  percent: 8
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-20)
 ## Current Position
 
 Phase: 01 (Fundação e PDF) — EXECUTING
-Plan: 2 of 3
-Status: Plan 01-01 complete; proceeding to 01-02 (PDF dynamic height)
-Last activity: 2026-06-20 -- Completed 01-01 (roundCurrency + type changes + POS rounding)
+Plan: 3 of 3
+Status: Plans 01-01 and 01-02 complete; proceeding to 01-03 (processReturn.ts extraction)
+Last activity: 2026-06-20 -- Completed 01-02 (dynamic-height PDFs: generateReceipt, generateRefundReceipt, generateQuotePDF)
 
 Progress: [█░░░░░░░░░] 5%
 
@@ -44,7 +44,7 @@ Progress: [█░░░░░░░░░] 5%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 — Fundação e PDF | 1/3 | ~4 min | ~4 min |
+| 01 — Fundação e PDF | 2/3 | ~12 min | ~6 min |
 
 **Recent Trend:**
 
@@ -68,6 +68,8 @@ Recent decisions affecting current work:
 - 01-01: Math.round(v*100)/100 without Decimal.js — mirrors cardFees.ts pattern
 - 01-01: Last installment absorbs residual (roundCurrency(total - base*(N-1))) for exact sum
 - 01-01: cancelledInstallmentIds optional on ReturnRecord — retrocompatible with electron-store
+- 01-02: PDF height = base + 8mm/item; Math.max(floor, estimated) preserves small-doc size
+- 01-02: Receipt base 140mm, refund 120mm, quote 100mm — validated at 30 and 25 items
 
 ### Pending Todos
 
@@ -90,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-06-20
-Stopped at: Phase 01 Plan 01 complete — roundCurrency + ReturnRecord type + centavo-correct POS installments
+Stopped at: Phase 01 Plan 02 complete — PDF dynamic height for receipt, refund receipt and quote
 Resume file: None

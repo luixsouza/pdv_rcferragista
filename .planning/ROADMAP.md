@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 Plans:
 - [x] 01-01-PLAN.md — roundCurrency helper (FND-01) + ReturnRecord/SaleItem type changes (FND-03) + arredondamento nas parcelas/carrinho do POS
-- [ ] 01-02-PLAN.md — Altura dinâmica dos PDFs de cupom e orçamento (PDF-01, PDF-02)
+- [x] 01-02-PLAN.md — Altura dinâmica dos PDFs de cupom e orçamento (PDF-01, PDF-02)
 - [ ] 01-03-PLAN.md — Extração de src/lib/processReturn.ts puro com paridade comportamental, consumido por Sales e Returns (FND-02)
 
 ### Phase 2: Crediário
@@ -104,7 +104,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fundação e PDF | 1/3 | In progress | - |
+| 1. Fundação e PDF | 2/3 | In progress | - |
 | 2. Crediário | 0/? | Not started | - |
 | 3. Estorno Correto | 0/? | Not started | - |
 | 4. Devolucao Completa | 0/? | Not started | - |
