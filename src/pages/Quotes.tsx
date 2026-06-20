@@ -51,11 +51,11 @@ export default function Quotes() {
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
   
-  const finalDiscountValue = isPercentage 
-    ? (subtotal * discountValue) / 100 
-    : discountValue;
+  const finalDiscountValue = roundCurrency(isPercentage
+    ? (subtotal * discountValue) / 100
+    : discountValue);
 
-  const total = Math.max(0, subtotal - finalDiscountValue);
+  const total = Math.max(0, roundCurrency(subtotal - finalDiscountValue));
 
 
   const addToCart = (product: Product) => {
@@ -71,9 +71,10 @@ export default function Quotes() {
       if (existingItem.quantity >= effectiveStock) {
         toast.warning('Atenção: Quantidade excede o estoque atual');
       }
+      const step = quantityStep(product.unit);
       setCart(cart.map(item =>
         item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, total: roundCurrency((item.quantity + 1) * item.unitPrice) }
+          ? { ...item, quantity: item.quantity + step, total: roundCurrency((item.quantity + step) * item.unitPrice) }
           : item
       ));
     } else {
