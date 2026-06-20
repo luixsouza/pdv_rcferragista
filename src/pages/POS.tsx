@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatCurrency, roundCurrency } from '@/lib/formatters';
+import { quantityStep, parseQuantity, clampQuantityForUnit } from '@/lib/units';
 import { isInstallmentOverdue, getEffectiveStatus } from '@/lib/installmentStatus';
 import { getStoreSettings } from '@/lib/storeInfo';
 import { ClientCombobox } from '@/components/ClientCombobox';
@@ -402,7 +403,9 @@ export default function POS() {
     const isMilheiro = product.unit === 'mil';
     const effectiveStock = isMilheiro ? product.stock * 1000 : product.stock;
 
-    const newQuantity = item.quantity + delta;
+    const rawQuantity = item.quantity + delta;
+    // Round to 2 decimal places to avoid floating-point drift (e.g. 0.5 + 0.5 + 0.5 → 1.4999...)
+    const newQuantity = Math.round(rawQuantity * 100) / 100;
 
     if (newQuantity <= 0) {
       setCart(cart.filter(i => i.productId !== productId));
@@ -428,19 +431,22 @@ export default function POS() {
     const isMilheiro = product.unit === 'mil';
     const effectiveStock = isMilheiro ? product.stock * 1000 : product.stock;
 
-    if (newQuantity <= 0) {
+    // Clamp: discrete units (un, cx, etc.) floor to integer; fractional units pass through
+    const clampedQuantity = clampQuantityForUnit(newQuantity, product.unit);
+
+    if (clampedQuantity <= 0) {
       setCart(cart.filter(i => i.productId !== productId));
       return;
     }
 
-    if (newQuantity > effectiveStock) {
+    if (clampedQuantity > effectiveStock) {
       toast.error('Estoque insuficiente');
       return;
     }
 
     setCart(cart.map(i =>
       i.productId === productId
-        ? { ...i, quantity: newQuantity, total: roundCurrency(newQuantity * i.unitPrice) }
+        ? { ...i, quantity: clampedQuantity, total: roundCurrency(clampedQuantity * i.unitPrice) }
         : i
     ));
   };
@@ -1068,32 +1074,42 @@ export default function POS() {
                              </div>
 
                              <div className="col-span-3 md:col-span-2 flex items-center justify-center gap-1">
-                               <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => updateQuantity(item.productId, -1)}
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  className="h-8 w-14 text-center p-0"
-                                  value={item.quantity}
-                                  onChange={(e) => {
-                                     const val = parseInt(e.target.value);
-                                     if (!isNaN(val)) updateItemQuantity(item.productId, val);
-                                  }}
-                                  onFocus={(e) => e.target.select()}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => updateQuantity(item.productId, 1)}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
+                               {(() => {
+                                 const itemUnit = products.find(p => p.id === item.productId)?.unit ?? '';
+                                 const step = quantityStep(itemUnit);
+                                 return (
+                                   <>
+                                     <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => updateQuantity(item.productId, -step)}
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <Input
+                                        type="number"
+                                        className="h-8 w-14 text-center p-0"
+                                        value={item.quantity}
+                                        min="0"
+                                        step={step}
+                                        onChange={(e) => {
+                                           const val = parseQuantity(e.target.value);
+                                           if (!isNaN(val)) updateItemQuantity(item.productId, val);
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => updateQuantity(item.productId, step)}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                   </>
+                                 );
+                               })()}
                              </div>
 
                              <div className="col-span-2 text-right hidden md:block text-sm">
