@@ -107,6 +107,7 @@ export interface ReturnRecord {
   creditGenerated: number;
   createdAt: string;
   reversedAt?: string;
+  cancelledInstallmentIds?: string[];
 }
 
 export interface Quote {
