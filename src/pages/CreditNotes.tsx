@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -31,8 +31,9 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { printCrediarioStatement, downloadCrediarioStatement } from '@/lib/generateCrediarioReceipt';
-import { formatCurrency, paymentLabels } from '@/lib/formatters';
+import { formatCurrency, roundCurrency, paymentLabels } from '@/lib/formatters';
 import { getStoreSettings } from '@/lib/storeInfo';
+import { getEffectiveStatus, isInstallmentOverdue } from '@/lib/installmentStatus';
 
 export default function CreditNotes() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -76,9 +77,18 @@ export default function CreditNotes() {
   const storeSettings = getStoreSettings();
   const interestRate = storeSettings.crediarioInterestRate;
 
+  // Single derived array: map every installment to its effective (on-the-fly) status.
+  // All display and aggregation paths read from this array so none are missed (CRED-02).
+  const effectiveInstallments = useMemo(
+    () => installments.map(inst => ({ ...inst, status: getEffectiveStatus(inst) })),
+    [installments]
+  );
+
   const calculateInterest = (inst: Installment): number => {
     if (interestRate <= 0) return 0;
-    if (inst.status !== 'overdue') return 0;
+    // Use effective status for interest check (isInstallmentOverdue covers 'open'-past-due too)
+    const effStatus = getEffectiveStatus(inst);
+    if (effStatus !== 'overdue') return 0;
     const daysOverdue = differenceInDays(new Date(), new Date(inst.dueDate));
     if (daysOverdue <= 0) return 0;
     const monthsOverdue = daysOverdue / 30;
@@ -90,19 +100,19 @@ export default function CreditNotes() {
   const resumoClientData = clients.find(c => c.id === resumoClient);
   const resumoCreditLimit = resumoClientData?.creditLimit || 0;
   const resumoCreditUsed = resumoClient
-    ? installments
-        .filter(i => i.clientId === resumoClient && (i.status === 'open' || i.status === 'overdue') && i.status !== 'cancelled')
+    ? effectiveInstallments
+        .filter(i => i.clientId === resumoClient && (i.status === 'open' || i.status === 'overdue'))
         .reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0)
     : 0;
   const resumoCreditAvailable = Math.max(0, resumoCreditLimit - resumoCreditUsed);
   const resumoUsagePercent = resumoCreditLimit > 0 ? Math.min(100, (resumoCreditUsed / resumoCreditLimit) * 100) : 0;
   const resumoOverdue = resumoClient
-    ? installments.filter(i => i.clientId === resumoClient && i.status === 'overdue')
+    ? effectiveInstallments.filter(i => i.clientId === resumoClient && i.status === 'overdue')
     : [];
   const resumoOverdueAmount = resumoOverdue.reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0);
 
   // ---- Parcelas tab ----
-  const filteredInstallments = installments
+  const filteredInstallments = effectiveInstallments
     .filter(i => {
       if (selectedClientFilter && i.clientId !== selectedClientFilter) return false;
       if (statusFilter !== 'all' && i.status !== statusFilter) return false;
@@ -112,7 +122,7 @@ export default function CreditNotes() {
       return true;
     })
     .sort((a, b) => {
-      // Overdue first, then open, then paid
+      // Overdue first, then open, then paid — using effective status (already derived above)
       const order = { overdue: 0, open: 1, paid: 2 };
       const diff = (order[a.status] ?? 3) - (order[b.status] ?? 3);
       if (diff !== 0) return diff;
@@ -136,12 +146,12 @@ export default function CreditNotes() {
     );
   };
 
-  const totalPendingInstallments = installments
-    .filter(i => (i.status === 'open' || i.status === 'overdue') && i.status !== 'cancelled')
+  const totalPendingInstallments = effectiveInstallments
+    .filter(i => (i.status === 'open' || i.status === 'overdue'))
     .reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0);
 
   // ---- Inadimplentes tab ----
-  const overdueInstallments = installments.filter(i => i.status === 'overdue');
+  const overdueInstallments = effectiveInstallments.filter(i => i.status === 'overdue');
   const delinquentClients = new Map<string, { clientName: string; overdueCount: number; overdueAmount: number; oldestDue: string }>();
   overdueInstallments.forEach(inst => {
     const existing = delinquentClients.get(inst.clientId);
@@ -347,6 +357,8 @@ export default function CreditNotes() {
         return <Badge variant="outline" className="text-xs border-amber-500 text-amber-600"><Clock className="h-3 w-3 mr-1" />Aberta</Badge>;
       case 'paid':
         return <Badge variant="outline" className="text-xs border-green-500 text-green-600"><CheckCircle2 className="h-3 w-3 mr-1" />Paga</Badge>;
+      case 'cancelled':
+        return <Badge variant="secondary" className="text-xs">Cancelada</Badge>;
     }
   };
 
@@ -460,62 +472,151 @@ export default function CreditNotes() {
                 </CardContent>
               </Card>
 
-              {/* Client's installments summary */}
+              {/* Per-client totals: devido / pago / saldo */}
               {(() => {
-                const clientInstallments = installments.filter(i => i.clientId === resumoClient && i.number > 0);
-                const openCount = clientInstallments.filter(i => i.status === 'open').length;
-                const overdueCount = clientInstallments.filter(i => i.status === 'overdue').length;
-                const paidCount = clientInstallments.filter(i => i.status === 'paid').length;
-                if (clientInstallments.length === 0) return null;
+                // Use effectiveInstallments so on-the-fly overdue does not affect money sums.
+                // Cancelled installments excluded from all money calculations (CRED-01).
+                const allClientInst = effectiveInstallments.filter(i => i.clientId === resumoClient);
+                const nonCancelled = allClientInst.filter(i => i.status !== 'cancelled');
+                if (nonCancelled.length === 0 && allClientInst.filter(i => i.status === 'cancelled').length === 0) return null;
+
+                const totalDevido = roundCurrency(nonCancelled.reduce((sum, i) => sum + i.amount - (i.discountApplied || 0), 0));
+                const totalPago = roundCurrency(nonCancelled.reduce((sum, i) => sum + i.amountPaid + (i.discountApplied || 0), 0));
+                const saldo = roundCurrency(totalDevido - totalPago);
 
                 return (
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-medium">Parcelas do Cliente</p>
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => printCrediarioStatement(
-                              resumoClientData!,
-                              clientInstallments,
-                              sales.filter(s => clientInstallments.some(ci => ci.saleId === s.id))
-                            )}
-                          >
-                            <Printer className="h-3 w-3 mr-1" />
-                            Imprimir
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => downloadCrediarioStatement(
-                              resumoClientData!,
-                              clientInstallments,
-                              sales.filter(s => clientInstallments.some(ci => ci.saleId === s.id))
-                            )}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Baixar
-                          </Button>
-                        </div>
+                    <CardContent className="p-4 space-y-2">
+                      <p className="text-sm font-medium mb-1">Totais do Cliente</p>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Devido</span>
+                        <span className="font-medium">{formatCurrency(totalDevido)}</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div className="p-2 bg-amber-50 dark:bg-amber-950 rounded-lg">
-                          <p className="text-2xl font-bold text-amber-600">{openCount}</p>
-                          <p className="text-xs text-muted-foreground">Abertas</p>
-                        </div>
-                        <div className="p-2 bg-red-50 dark:bg-red-950 rounded-lg">
-                          <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
-                          <p className="text-xs text-muted-foreground">Vencidas</p>
-                        </div>
-                        <div className="p-2 bg-green-50 dark:bg-green-950 rounded-lg">
-                          <p className="text-2xl font-bold text-green-600">{paidCount}</p>
-                          <p className="text-xs text-muted-foreground">Pagas</p>
-                        </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Pago</span>
+                        <span className="font-medium text-green-600">{formatCurrency(totalPago)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm pt-2 border-t">
+                        <span className="font-medium">Saldo em Aberto</span>
+                        <span className={cn("font-bold", saldo > 0 ? "text-amber-600" : "text-green-600")}>{formatCurrency(saldo)}</span>
                       </div>
                     </CardContent>
                   </Card>
+                );
+              })()}
+
+              {/* Client's installments summary + per-sale breakdown */}
+              {(() => {
+                // Use original installments for PDF/print (preserves stored data), effectiveInstallments for counts.
+                const clientInstallments = installments.filter(i => i.clientId === resumoClient && i.number > 0);
+                const clientEffective = effectiveInstallments.filter(i => i.clientId === resumoClient && i.number > 0);
+                const openCount = clientEffective.filter(i => i.status === 'open').length;
+                const overdueCount = clientEffective.filter(i => i.status === 'overdue').length;
+                const paidCount = clientEffective.filter(i => i.status === 'paid').length;
+                if (clientInstallments.length === 0) return null;
+
+                // Per-sale breakdown grouped by saleId (uses effectiveInstallments including number===0 entry)
+                const allClientEff = effectiveInstallments.filter(i => i.clientId === resumoClient);
+                const saleIds = Array.from(new Set(allClientEff.map(i => i.saleId)));
+
+                return (
+                  <>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-medium">Parcelas do Cliente</p>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => printCrediarioStatement(
+                                resumoClientData!,
+                                clientInstallments,
+                                sales.filter(s => clientInstallments.some(ci => ci.saleId === s.id))
+                              )}
+                            >
+                              <Printer className="h-3 w-3 mr-1" />
+                              Imprimir
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => downloadCrediarioStatement(
+                                resumoClientData!,
+                                clientInstallments,
+                                sales.filter(s => clientInstallments.some(ci => ci.saleId === s.id))
+                              )}
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Baixar
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div className="p-2 bg-amber-50 dark:bg-amber-950 rounded-lg">
+                            <p className="text-2xl font-bold text-amber-600">{openCount}</p>
+                            <p className="text-xs text-muted-foreground">Abertas</p>
+                          </div>
+                          <div className="p-2 bg-red-50 dark:bg-red-950 rounded-lg">
+                            <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
+                            <p className="text-xs text-muted-foreground">Vencidas</p>
+                          </div>
+                          <div className="p-2 bg-green-50 dark:bg-green-950 rounded-lg">
+                            <p className="text-2xl font-bold text-green-600">{paidCount}</p>
+                            <p className="text-xs text-muted-foreground">Pagas</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Per-sale breakdown */}
+                    {saleIds.length > 0 && (
+                      <Card>
+                        <CardContent className="p-4">
+                          <p className="text-sm font-medium mb-3">Resumo por Venda</p>
+                          <div className="space-y-3">
+                            {saleIds.map(saleId => {
+                              const saleInst = allClientEff.filter(i => i.saleId === saleId);
+                              const saleNonCancelled = saleInst.filter(i => i.status !== 'cancelled');
+                              const saleDevido = roundCurrency(saleNonCancelled.reduce((sum, i) => sum + i.amount - (i.discountApplied || 0), 0));
+                              const salePago = roundCurrency(saleNonCancelled.reduce((sum, i) => sum + i.amountPaid + (i.discountApplied || 0), 0));
+                              const saleSaldo = roundCurrency(saleDevido - salePago);
+                              const saleOpenCount = saleInst.filter(i => i.status === 'open').length;
+                              const saleOverdueCount = saleInst.filter(i => i.status === 'overdue').length;
+                              const salePaidCount = saleInst.filter(i => i.status === 'paid').length;
+                              const saleCancelledCount = saleInst.filter(i => i.status === 'cancelled').length;
+
+                              return (
+                                <div key={saleId} className="border rounded-lg p-3 space-y-2">
+                                  <p className="text-xs font-medium text-muted-foreground">
+                                    Venda #{saleId.slice(0, 8).toUpperCase()}
+                                  </p>
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Devido</span>
+                                    <span className="font-medium">{formatCurrency(saleDevido)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Pago</span>
+                                    <span className="font-medium text-green-600">{formatCurrency(salePago)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-xs border-t pt-1">
+                                    <span className="font-medium">Saldo</span>
+                                    <span className={cn("font-bold", saleSaldo > 0 ? "text-amber-600" : "text-green-600")}>{formatCurrency(saleSaldo)}</span>
+                                  </div>
+                                  <div className="flex gap-1 flex-wrap mt-1">
+                                    {saleOpenCount > 0 && <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">{saleOpenCount} Aberta{saleOpenCount > 1 ? 's' : ''}</Badge>}
+                                    {saleOverdueCount > 0 && <Badge variant="destructive" className="text-xs">{saleOverdueCount} Vencida{saleOverdueCount > 1 ? 's' : ''}</Badge>}
+                                    {salePaidCount > 0 && <Badge variant="outline" className="text-xs border-green-500 text-green-600">{salePaidCount} Paga{salePaidCount > 1 ? 's' : ''}</Badge>}
+                                    {saleCancelledCount > 0 && <Badge variant="secondary" className="text-xs">{saleCancelledCount} Cancelada{saleCancelledCount > 1 ? 's' : ''}</Badge>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
                 );
               })()}
             </div>
