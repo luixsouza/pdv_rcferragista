@@ -60,13 +60,18 @@ export default function Reports() {
     );
     const crediarioReceived = dayCrediarioPayments.reduce((sum, p) => sum + p.amount, 0);
 
-    // Refunds
+    // Refunds — accounting total (sum of sale.total for reversed sales)
     const dayRefunds = sales.filter(s =>
       s.status === 'refunded' && s.createdAt.slice(0, 10) === cashDate
     );
     const totalRefunds = dayRefunds.reduce((sum, s) => sum + s.total, 0);
 
-    return { totalRevenue, saleCount, byMethod, totalCardFees, crediarioReceived, totalRefunds };
+    // Cash actually disbursed from the register at estorno (EST-03b / cashRefundOut field).
+    // Distinct from totalRefunds (accounting reversal value) — the two will differ when estorno
+    // generates haver instead of cash, or when a crediário sale had zero paid (no cash out).
+    const cashRefundOut = dayRefunds.reduce((sum, s) => sum + (s.cashRefundOut || 0), 0);
+
+    return { totalRevenue, saleCount, byMethod, totalCardFees, crediarioReceived, totalRefunds, cashRefundOut };
   }, [sales, creditPayments, cashDate]);
 
   // ======= RELATÓRIO MENSAL =======
@@ -247,6 +252,12 @@ export default function Reports() {
                     <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
                       <span className="text-sm text-red-700 dark:text-red-300">Taxas de Cartão</span>
                       <span className="font-bold text-red-600">-{formatCurrency(cashReport.totalCardFees)}</span>
+                    </div>
+                  )}
+                  {cashReport.cashRefundOut > 0 && (
+                    <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                      <span className="text-sm text-red-700 dark:text-red-300">Saída de Caixa (Estorno em Dinheiro)</span>
+                      <span className="font-bold text-red-600">-{formatCurrency(cashReport.cashRefundOut)}</span>
                     </div>
                   )}
                 </div>
