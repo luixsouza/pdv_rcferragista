@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatCurrency, roundCurrency } from '@/lib/formatters';
-import { isInstallmentOverdue } from '@/lib/installmentStatus';
+import { isInstallmentOverdue, getEffectiveStatus } from '@/lib/installmentStatus';
 import { getStoreSettings } from '@/lib/storeInfo';
 import { ClientCombobox } from '@/components/ClientCombobox';
 import { Switch } from '@/components/ui/switch';
@@ -136,7 +136,7 @@ export default function POS() {
     : 0;
   const clientCreditAvailable = Math.max(0, clientCreditLimit - clientCreditUsed);
   const clientOverdueInstallments = selectedClient
-    ? installments.filter(i => i.clientId === selectedClient && isInstallmentOverdue(i))
+    ? installments.filter(i => i.clientId === selectedClient && getEffectiveStatus(i) === 'overdue')
     : [];
   const isClientDelinquent = clientOverdueInstallments.length > 0;
 
