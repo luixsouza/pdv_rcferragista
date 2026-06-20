@@ -40,6 +40,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { printReceipt, downloadReceipt } from '@/lib/generateReceipt';
 import { formatCurrency, paymentLabels } from '@/lib/formatters';
+import { processReturn } from '@/lib/processReturn';
 
 export default function Sales() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -240,52 +241,25 @@ export default function Sales() {
 
     const hasClient = !!selectedSale.clientId;
     const clientObj = hasClient ? clients.find(c => c.id === selectedSale.clientId) : null;
+    const alreadyReturnedQtys = getReturnedQuantities(selectedSale.id);
 
-    const returnRecord: ReturnRecord = {
-      id: crypto.randomUUID(),
-      originalSaleId: selectedSale.id,
-      clientId: selectedSale.clientId || 'sem-cliente',
-      clientName: clientObj?.name || selectedSale.clientName || 'Sem cliente',
-      items: itemsToReturn.map(ri => ({
+    const { returnRecord, updatedProducts, updatedClients, allItemsReturned } = processReturn({
+      sale: selectedSale,
+      itemsToReturn: itemsToReturn.map(ri => ({
         productId: ri.item.productId,
         productName: ri.item.productName,
         quantity: ri.quantity,
         unitPrice: ri.item.unitPrice,
         costPrice: ri.item.costPrice,
-        total: ri.quantity * ri.item.unitPrice,
       })),
-      totalRefunded: returnTotal,
-      creditGenerated: hasClient ? returnTotal : 0,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Restore stock
-    const updatedProducts = products.map(product => {
-      const returnItem = itemsToReturn.find(ri => ri.item.productId === product.id);
-      if (returnItem) {
-        const restock = product.unit === 'mil' ? returnItem.quantity / 1000 : returnItem.quantity;
-        return { ...product, stock: product.stock + restock, updatedAt: new Date().toISOString() };
-      }
-      return product;
+      products,
+      clients,
+      clientId: selectedSale.clientId,
+      clientName: clientObj?.name || selectedSale.clientName || 'Sem cliente',
+      alreadyReturnedQtys,
     });
 
-    // Store credit
-    const updatedClients = hasClient
-      ? clients.map(c =>
-          c.id === selectedSale.clientId
-            ? { ...c, storeCredit: (c.storeCredit || 0) + returnTotal, updatedAt: new Date().toISOString() }
-            : c
-        )
-      : clients;
-
-    // Check if all items fully returned
-    const allReturnedQtys = getReturnedQuantities(selectedSale.id);
-    itemsToReturn.forEach(ri => {
-      allReturnedQtys[ri.item.productId] = (allReturnedQtys[ri.item.productId] || 0) + ri.quantity;
-    });
-    const allReturned = selectedSale.items.every(item => (allReturnedQtys[item.productId] || 0) >= item.quantity);
-
-    const updatedSales = allReturned
+    const updatedSales = allItemsReturned
       ? sales.map(s => s.id === selectedSale.id ? { ...s, status: 'refunded' as const } : s)
       : sales;
 
