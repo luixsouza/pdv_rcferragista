@@ -318,7 +318,10 @@ export default function Sales() {
     const clientObj = hasClient ? clients.find(c => c.id === selectedSale.clientId) : null;
     const alreadyReturnedQtys = getReturnedQuantities(selectedSale.id);
 
-    const { returnRecord, updatedProducts, updatedClients, allItemsReturned } = processReturn({
+    // D-04 / DEV-04: pass installments so processReturn can apply haver capping
+    // (crediário zero-paid → creditGenerated = 0; cash/card/pix unchanged).
+    // DEV-06: installment cancellation on full crediário return (BUG-2 parity with Returns.tsx).
+    const { returnRecord, updatedProducts, updatedClients, allItemsReturned, cancelledInstallmentIds } = processReturn({
       sale: selectedSale,
       itemsToReturn: itemsToReturn.map(ri => ({
         productId: ri.item.productId,
@@ -332,26 +335,61 @@ export default function Sales() {
       clientId: selectedSale.clientId,
       clientName: clientObj?.name || selectedSale.clientName || 'Sem cliente',
       alreadyReturnedQtys,
+      installments,
     });
 
+    // On full return of a crediário sale: persist cancelledInstallmentIds on the sale record
+    // so the reversal path in Returns.tsx can restore them (DEV-07 parity).
     const updatedSales = allItemsReturned
-      ? sales.map(s => s.id === selectedSale.id ? { ...s, status: 'refunded' as const } : s)
+      ? sales.map(s =>
+          s.id === selectedSale.id
+            ? {
+                ...s,
+                status: 'refunded' as const,
+                ...(cancelledInstallmentIds.length > 0 ? { cancelledInstallmentIds } : {}),
+              }
+            : s
+        )
       : sales;
 
     setProducts(updatedProducts);
     setClients(updatedClients);
     setSales(updatedSales);
     setReturns([...returns, returnRecord]);
+
+    // Cancel open/overdue installments on full crediário return (BUG-2 fix — mirrors Returns.tsx).
+    // result.cancelledInstallmentIds is always a string[]; apply only when non-empty.
+    if (cancelledInstallmentIds.length > 0) {
+      setInstallments(installments.map(inst =>
+        cancelledInstallmentIds.includes(inst.id) ? { ...inst, status: 'cancelled' as const } : inst
+      ));
+    }
+
     setSelectedSale(null);
     setReturnMode(false);
     setReturnItems([]);
 
-    toast({
-      title: "Devolução registrada",
-      description: hasClient
-        ? `${formatCurrency(returnRecord.totalRefunded)} adicionado ao crédito em haver do cliente.`
-        : `Estoque restaurado. (Sem cliente, crédito não gerado)`,
-    });
+    // Toast uses capped returnRecord.creditGenerated (DEV-04, T-04-10) — not raw totalRefunded.
+    // For crediário zero-paid sales: creditGenerated = 0 → inform operator debt cancelled, no haver.
+    if (!hasClient) {
+      toast({
+        title: "Devolução registrada",
+        description: "Estoque restaurado. (Sem cliente, crédito não gerado)",
+      });
+    } else if (returnRecord.creditGenerated > 0) {
+      toast({
+        title: "Devolução registrada",
+        description: `${formatCurrency(returnRecord.creditGenerated)} adicionado ao crédito em haver do cliente.`,
+      });
+    } else {
+      // Crediário with zero paid: debt cancelled / no haver generated (DEV-04, T-04-10)
+      toast({
+        title: "Devolução registrada",
+        description: cancelledInstallmentIds.length > 0
+          ? "Dívida cancelada — nenhum valor pago, nenhum haver gerado. Parcelas em aberto canceladas."
+          : "Dívida cancelada — nenhum valor pago, nenhum haver gerado.",
+      });
+    }
   };
 
   const canRefund = (sale: Sale) => {
@@ -636,9 +674,9 @@ export default function Sales() {
                         </div>
                       ))}
                     </div>
-                    {returnTotal > 0 && (
+                    {returnTotal > 0 && selectedSale.clientId && (
                       <div className="flex justify-between text-sm font-medium p-2 bg-amber-50 dark:bg-amber-950 rounded">
-                        <span>Crédito em haver:</span>
+                        <span>Valor a devolver:</span>
                         <span>{formatCurrency(returnTotal)}</span>
                       </div>
                     )}
@@ -661,7 +699,7 @@ export default function Sales() {
                             <AlertDialogDescription>
                               {returnItems.filter(ri => ri.selected).length} item(ns) serão devolvidos.
                               {selectedSale.clientId
-                                ? ` ${formatCurrency(returnTotal)} será adicionado como crédito em haver.`
+                                ? ' O crédito em haver gerado será proporcional ao valor efetivamente pago.'
                                 : ' O estoque será restaurado (sem crédito — venda sem cliente).'}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
