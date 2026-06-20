@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/use-toast';
 import { Sale, Product, Installment, CreditPayment, Client, ReturnRecord, SaleItem } from '@/types';
-import { History, Search, Eye, Calendar, Printer, Download, AlertTriangle, RotateCcw, FileDown } from 'lucide-react';
+import { History, Search, Eye, Calendar, Printer, Download, AlertTriangle, RotateCcw, FileDown, Receipt, FileText } from 'lucide-react';
 import { exportToCSV } from '@/lib/csvExport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,8 @@ import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { printReceipt, downloadReceipt } from '@/lib/generateReceipt';
+import { printNFCe, downloadNFCe } from '@/lib/generateNFCe';
+import { printDANFE, downloadDANFE } from '@/lib/generateDANFE';
 import { formatCurrency, roundCurrency, paymentLabels } from '@/lib/formatters';
 import { processReturn } from '@/lib/processReturn';
 import { processRefund } from '@/lib/processRefund';
@@ -407,6 +409,8 @@ export default function Sales() {
     return sale.items.some(item => (item.quantity - (returnedQtys[item.productId] || 0)) > 0);
   };
 
+  const clientFor = (sale: Sale) => clients.find(c => c.id === sale.clientId);
+
   return (
     <Layout>
       <PageHeader
@@ -492,6 +496,12 @@ export default function Sales() {
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => downloadReceipt(sale)} title="Baixar PDF">
                         <Download className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => void printNFCe(sale, clientFor(sale))} title="Gerar NFCe (cupom)">
+                        <Receipt className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => void printDANFE(sale, clientFor(sale))} title="Gerar DANFE (NFe)">
+                        <FileText className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => setSelectedSale(sale)} title="Ver detalhes">
                         <Eye className="h-4 w-4" />
@@ -623,6 +633,28 @@ export default function Sales() {
                   <Button className="flex-1" onClick={() => downloadReceipt(selectedSale)}>
                     <Download className="h-4 w-4 mr-2" />
                     Baixar PDF
+                  </Button>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => void printNFCe(selectedSale, clientFor(selectedSale))}>
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Gerar NFCe
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => void downloadNFCe(selectedSale, clientFor(selectedSale))}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar NFCe
+                  </Button>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => void printDANFE(selectedSale, clientFor(selectedSale))}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Gerar DANFE
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => void downloadDANFE(selectedSale, clientFor(selectedSale))}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar DANFE
                   </Button>
                 </div>
 
