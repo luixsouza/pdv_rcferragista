@@ -85,10 +85,10 @@ export default function Returns() {
     : [];
 
   // Select sale directly from code search (may not have client)
+  // WR-02 fix: always sync selectedClient to the sale's clientId (or clear it when absent)
+  // so a previously-selected combobox client is not accidentally used for haver generation.
   const selectSaleFromSearch = (sale: Sale) => {
-    if (sale.clientId) {
-      setSelectedClient(sale.clientId);
-    }
+    setSelectedClient(sale.clientId || '');
     selectSale(sale);
   };
 
