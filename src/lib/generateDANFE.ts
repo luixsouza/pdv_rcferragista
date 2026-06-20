@@ -334,7 +334,7 @@ export async function generateDANFE(sale: Sale, client?: Client): Promise<jsPDF>
   drawLabel(doc, 'DATA DA EMISSÃO', destDataX, q2Y);
   drawValue(
     doc,
-    format(new Date(sale.createdAt), 'dd/MM/yyyy', { locale: ptBR }),
+    (() => { try { return format(new Date(sale.createdAt), 'dd/MM/yyyy', { locale: ptBR }); } catch { return ''; } })(),
     destDataX,
     q2Y
   );
@@ -399,7 +399,7 @@ export async function generateDANFE(sale: Sale, client?: Client): Promise<jsPDF>
   drawLabel(doc, 'HORA SAÍDA', destHoraX, destRow3Y);
   drawValue(
     doc,
-    format(new Date(sale.createdAt), 'HH:mm:ss', { locale: ptBR }),
+    (() => { try { return format(new Date(sale.createdAt), 'HH:mm:ss', { locale: ptBR }); } catch { return ''; } })(),
     destHoraX,
     destRow3Y
   );
