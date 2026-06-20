@@ -69,9 +69,14 @@ export function quantityStep(unit: string): number {
  */
 export function parseQuantity(raw: string): number {
   if (!raw) return NaN;
-  // Replace a decimal comma with a dot (pt-BR locale normalization).
-  // Only replaces the last comma so "1.000,50" also works.
-  const normalized = raw.replace(',', '.');
+  // Normalize pt-BR decimal notation:
+  // If the string contains a comma (decimal separator in BRL locale), strip all
+  // thousands-separator dots first, then replace the decimal comma with a dot.
+  // Examples: "1,5" → 1.5, "1.000,50" → 1000.5, "2.5" → 2.5, "1000" → 1000.
+  const hasComma = raw.includes(',');
+  const normalized = hasComma
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw;
   return parseFloat(normalized);
 }
 
