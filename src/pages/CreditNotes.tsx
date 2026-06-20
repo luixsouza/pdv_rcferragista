@@ -257,6 +257,12 @@ export default function CreditNotes() {
     const entryInstallment = updatedInstallments.find(i => i.saleId === selectedInstallment.saleId && i.number === 0);
     const entryPaid = entryInstallment?.amountPaid || 0;
 
+    // Sum interest from all prior payments on this sale (excluding current — reads stale closure
+    // before setCreditPayments flush, so current payment is not yet in creditPayments array).
+    const pastInterest = creditPayments
+      .filter(p => p.saleId === selectedInstallment.saleId && p.type !== 'discount' && p.interestAmount)
+      .reduce((sum, p) => sum + (p.interestAmount || 0), 0);
+
     // sale.crediarioPaid reflects the FULL amount collected (principal + interest) so the
     // operator can see what was actually received. Installment.amountPaid only ever holds
     // the principal portion (interest not capitalized — CRED-03, deferred "Juros compostos").
@@ -264,7 +270,7 @@ export default function CreditNotes() {
       if (s.id !== selectedInstallment.saleId) return s;
       return {
         ...s,
-        crediarioPaid: totalPrincipalOnSale + entryPaid + chargedInterest,
+        crediarioPaid: totalPrincipalOnSale + entryPaid + pastInterest + chargedInterest,
         status: allPaid ? 'crediario_paid' as const : 'crediario_pending' as const,
         paidAt: allPaid ? now : undefined,
       };
