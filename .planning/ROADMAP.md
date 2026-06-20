@@ -76,7 +76,12 @@ Plans:
   3. Uma devolução na modalidade "abatimento de débito" abate o valor em parcela(s) escolhida(s) pelo operador sem gerar haver, e as parcelas refletem o abatimento imediatamente na tela de crediário
   4. A página de Devoluções lista e processa devoluções de vendas com status `crediario_pending` da mesma forma que vendas pagas
   5. Reverter uma devolução que havia cancelado parcelas restaura essas parcelas como abertas/vencidas (conforme a data de vencimento), deixando o crediário no estado anterior à devolução
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 04-01-PLAN.md — Upgrade de src/lib/processReturn.ts: haver capping (DEV-04), conjunto cancelledInstallmentIds e função pura processAbatement (DEV-05) + CreditPayment.type 'abatimento' (DEV-04, DEV-05)
+- [ ] 04-02-PLAN.md — Returns.tsx: modalidade haver/abatimento, eligibleSales com crediario_pending, cancelamento de parcelas e reversão consistente (DEV-04, DEV-05, DEV-06, DEV-07)
+- [ ] 04-03-PLAN.md — POS.tsx: entrada de devolução pelo PDV, vendas sem cliente e cadastro/associação inline de cliente (DEV-01, DEV-02, DEV-03, DEV-04)
+- [ ] 04-04-PLAN.md — Sales.tsx: consistência do caminho de devolução com o capping + cancelamento de parcelas (DEV-04, DEV-06)
 **UI hint**: yes
 
 ### Phase 5: Venda Fracionada
@@ -114,6 +119,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Fundação e PDF | 3/3 | Complete   | 2026-06-20 |
 | 2. Crediário | 3/3 | Complete   | 2026-06-20 |
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
-| 4. Devolucao Completa | 0/? | Not started | - |
+| 4. Devolucao Completa | 0/4 | Planned | - |
 | 5. Venda Fracionada | 0/? | Not started | - |
 | 6. Layout Fiscal | 0/? | Not started | - |
