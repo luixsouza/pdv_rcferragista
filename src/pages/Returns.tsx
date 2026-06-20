@@ -207,7 +207,15 @@ export default function Returns() {
     });
 
     const updatedSales = allItemsReturned
-      ? sales.map(s => s.id === selectedSale.id ? { ...s, status: 'refunded' as const } : s)
+      ? sales.map(s =>
+          s.id === selectedSale.id
+            ? {
+                ...s,
+                status: 'refunded' as const,
+                ...(cancelledInstallmentIds.length > 0 ? { cancelledInstallmentIds } : {}),
+              }
+            : s
+        )
       : sales;
 
     if (returnModality === 'abatimento') {

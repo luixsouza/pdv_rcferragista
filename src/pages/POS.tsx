@@ -334,10 +334,16 @@ export default function POS() {
       );
     }
 
-    // Mark sale as refunded when all items returned
+    // Mark sale as refunded when all items returned; persist cancelledInstallmentIds (INT-1 audit trail)
     if (allItemsReturned) {
       setSales(sales.map(s =>
-        s.id === returnSelectedSale.id ? { ...s, status: 'refunded' as const } : s
+        s.id === returnSelectedSale.id
+          ? {
+              ...s,
+              status: 'refunded' as const,
+              ...(cancelledInstallmentIds.length > 0 ? { cancelledInstallmentIds } : {}),
+            }
+          : s
       ));
     }
 
