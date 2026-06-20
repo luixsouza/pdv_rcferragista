@@ -42,8 +42,8 @@
 ### Venda por quantidade fracionada
 
 - [x] **FRAC-01**: No PDV é possível informar quantidade decimal (ex.: 1,5) para produtos com unidade de medida (mt, kg, lt, m²), com passo apropriado por unidade
-- [ ] **FRAC-02**: O total do item e da venda é calculado automaticamente a partir da quantidade fracionada e do preço unitário, com arredondamento correto
-- [ ] **FRAC-03**: A baixa de estoque respeita a quantidade fracionada e o cadastro de produto preserva estoque decimal (corrige `parseInt` em Products)
+- [x] **FRAC-02**: O total do item e da venda é calculado automaticamente a partir da quantidade fracionada e do preço unitário, com arredondamento correto
+- [x] **FRAC-03**: A baixa de estoque respeita a quantidade fracionada e o cadastro de produto preserva estoque decimal (corrige `parseInt` em Products)
 - [ ] **FRAC-04**: O orçamento também aceita quantidade fracionada para produtos de medida
 
 ### Layout fiscal (NFe / NFCe — apenas visual)
@@ -97,8 +97,8 @@
 | DEV-06 | Phase 4 | Complete |
 | DEV-07 | Phase 4 | Complete |
 | FRAC-01 | Phase 5 | Complete |
-| FRAC-02 | Phase 5 | Pending |
-| FRAC-03 | Phase 5 | Pending |
+| FRAC-02 | Phase 5 | Complete |
+| FRAC-03 | Phase 5 | Complete |
 | FRAC-04 | Phase 5 | Pending |
 | FISC-01 | Phase 6 | Pending |
 | FISC-02 | Phase 6 | Pending |
