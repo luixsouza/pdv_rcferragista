@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: "Phase 01 Plan 01 complete — roundCurrency + ReturnRecord.cancelledInstallmentIds + centavo-correct POS"
+last_updated: "2026-06-20T14:05:51Z"
+last_activity: "2026-06-20 -- Completed 01-01 (roundCurrency + type changes + POS rounding)"
+progress:
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 5
+---
+
 # Project State
 
 ## Project Reference
@@ -5,32 +21,34 @@
 See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Core value:** O lojista gere vendas, crediário e devoluções com valores financeiros corretos (sem haver indevido nem parcelas fantasmas) e imprime documentos completos e legíveis.
-**Current focus:** Phase 1 — Fundação e PDF
+**Current focus:** Phase 01 — Fundação e PDF
 
 ## Current Position
 
-Phase: 1 of 6 (Fundação e PDF)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-06-20 — Roadmap criado; 26 requisitos v1 mapeados em 6 fases
+Phase: 01 (Fundação e PDF) — EXECUTING
+Plan: 2 of 3
+Status: Plan 01-01 complete; proceeding to 01-02 (PDF dynamic height)
+Last activity: 2026-06-20 -- Completed 01-01 (roundCurrency + type changes + POS rounding)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 5%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+
+- Total plans completed: 1
+- Average duration: ~4 min
+- Total execution time: ~0.06 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| — | — | — | — |
+| 01 — Fundação e PDF | 1/3 | ~4 min | ~4 min |
 
 **Recent Trend:**
-- Last 5 plans: —
+
+- Last 5 plans: 01-01 (4 min)
 - Trend: —
 
 *Updated after each plan completion*
@@ -47,6 +65,9 @@ Recent decisions affecting current work:
 - Roadmap init: Quantidade fracionada por unidade do produto (mt/kg/lt/m²)
 - Roadmap init: NFe/NFCe apenas layout visual; campos fiscais com placeholder seguros
 - Roadmap init: Extrair lógica de devolução para `src/lib/processReturn.ts` (FND-02)
+- 01-01: Math.round(v*100)/100 without Decimal.js — mirrors cardFees.ts pattern
+- 01-01: Last installment absorbs residual (roundCurrency(total - base*(N-1))) for exact sum
+- 01-01: cancelledInstallmentIds optional on ReturnRecord — retrocompatible with electron-store
 
 ### Pending Todos
 
@@ -69,5 +90,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-06-20
-Stopped at: Roadmap criado e aprovado; pronto para iniciar planejamento da Fase 1
+Stopped at: Phase 01 Plan 01 complete — roundCurrency + ReturnRecord type + centavo-correct POS installments
 Resume file: None
