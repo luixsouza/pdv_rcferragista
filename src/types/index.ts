@@ -77,6 +77,8 @@ export interface CreditPayment {
   amount: number;
   paymentMethod: 'cash' | 'credit' | 'debit' | 'pix';
   type?: 'payment' | 'discount';
+  // Interest component included within amount — enables auditable interest charges (CRED-03)
+  interestAmount?: number;
   createdAt: string;
 }
 
