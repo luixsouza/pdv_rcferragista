@@ -14,7 +14,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Sale, Client } from '@/types';
+import { Sale, Client, Product } from '@/types';
 import { getStoreSettings } from '@/lib/storeInfo';
 import { formatCurrency, roundCurrency } from '@/lib/formatters';
 import { formatDocument } from '@/lib/documentValidation';
@@ -126,7 +126,7 @@ function drawPageHeader(
  * @param client  Optional client for the Destinatário quadro.
  * @returns       Promise<jsPDF> — async because the CODE-128 barcode uses bwip-js canvas.
  */
-export async function generateDANFE(sale: Sale, client?: Client): Promise<jsPDF> {
+export async function generateDANFE(sale: Sale, client?: Client, products?: Product[]): Promise<jsPDF> {
   const store = getStoreSettings();
 
   // Generate barcode once; reuse on every page
@@ -538,7 +538,7 @@ export async function generateDANFE(sale: Sale, client?: Client): Promise<jsPDF>
     const ncm = PLACEHOLDER_NCM;
     const cst = PLACEHOLDER_CST;
     const cfop = PLACEHOLDER_CFOP;
-    const un = 'UN';
+    const un = (products?.find(p => p.id === item.productId)?.unit ?? 'UN').toUpperCase();
     const qtde = String(item.quantity);
     const vlUnit = item.unitPrice.toFixed(2).replace('.', ',');
     const vlTotal = item.total.toFixed(2).replace('.', ',');
@@ -794,8 +794,8 @@ export async function generateDANFE(sale: Sale, client?: Client): Promise<jsPDF>
 /**
  * Prints the DANFE PDF by opening it in a new tab with autoPrint enabled.
  */
-export async function printDANFE(sale: Sale, client?: Client): Promise<void> {
-  const doc = await generateDANFE(sale, client);
+export async function printDANFE(sale: Sale, client?: Client, products?: Product[]): Promise<void> {
+  const doc = await generateDANFE(sale, client, products);
   doc.autoPrint();
   window.open(doc.output('bloburl'), '_blank');
 }
@@ -803,7 +803,7 @@ export async function printDANFE(sale: Sale, client?: Client): Promise<void> {
 /**
  * Downloads the DANFE PDF as a file.
  */
-export async function downloadDANFE(sale: Sale, client?: Client): Promise<void> {
-  const doc = await generateDANFE(sale, client);
+export async function downloadDANFE(sale: Sale, client?: Client, products?: Product[]): Promise<void> {
+  const doc = await generateDANFE(sale, client, products);
   doc.save(`danfe_${sale.id.slice(0, 8)}.pdf`);
 }

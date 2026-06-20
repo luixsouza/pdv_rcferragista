@@ -18,7 +18,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Sale, Client } from '@/types';
+import { Sale, Client, Product } from '@/types';
 import { formatCurrency, paymentLabels } from '@/lib/formatters';
 import { getStoreSettings } from '@/lib/storeInfo';
 import { formatDocument } from '@/lib/documentValidation';
@@ -81,7 +81,7 @@ function rowText(
  * Returns a Promise<jsPDF> because the QR code data URL is generated
  * asynchronously via the qrcode library.
  */
-export async function generateNFCe(sale: Sale, client?: Client): Promise<jsPDF> {
+export async function generateNFCe(sale: Sale, client?: Client, products?: Product[]): Promise<jsPDF> {
   const store = getStoreSettings();
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -163,7 +163,8 @@ export async function generateNFCe(sale: Sale, client?: Client): Promise<jsPDF> 
     y += 3;
 
     // Line 2: qty × unit price = total (right-aligned values)
-    const qtyStr = `    ${item.quantity} UN x ${formatCurrency(item.unitPrice)}`;
+    const unitLabel = (products?.find(p => p.id === item.productId)?.unit ?? 'UN').toUpperCase();
+    const qtyStr = `    ${item.quantity} ${unitLabel} x ${formatCurrency(item.unitPrice)}`;
     const totalStr = formatCurrency(item.total);
     doc.text(qtyStr, MARGIN, y);
     doc.text(totalStr, TEXT_RIGHT, y, { align: 'right' });
@@ -323,8 +324,8 @@ export async function generateNFCe(sale: Sale, client?: Client): Promise<jsPDF> 
 /**
  * Opens the NFCe cupom in a new browser tab with auto-print dialog.
  */
-export async function printNFCe(sale: Sale, client?: Client): Promise<void> {
-  const doc = await generateNFCe(sale, client);
+export async function printNFCe(sale: Sale, client?: Client, products?: Product[]): Promise<void> {
+  const doc = await generateNFCe(sale, client, products);
   doc.autoPrint();
   window.open(doc.output('bloburl'), '_blank');
 }
@@ -332,7 +333,7 @@ export async function printNFCe(sale: Sale, client?: Client): Promise<void> {
 /**
  * Downloads the NFCe cupom as a PDF file.
  */
-export async function downloadNFCe(sale: Sale, client?: Client): Promise<void> {
-  const doc = await generateNFCe(sale, client);
+export async function downloadNFCe(sale: Sale, client?: Client, products?: Product[]): Promise<void> {
+  const doc = await generateNFCe(sale, client, products);
   doc.save(`nfce_${sale.id.slice(0, 8)}.pdf`);
 }
