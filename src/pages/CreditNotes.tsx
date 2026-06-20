@@ -508,7 +508,7 @@ export default function CreditNotes() {
                 if (nonCancelled.length === 0 && allClientInst.filter(i => i.status === 'cancelled').length === 0) return null;
 
                 const totalDevido = roundCurrency(nonCancelled.reduce((sum, i) => sum + i.amount - (i.discountApplied || 0), 0));
-                const totalPago = roundCurrency(nonCancelled.reduce((sum, i) => sum + i.amountPaid + (i.discountApplied || 0), 0));
+                const totalPago = roundCurrency(nonCancelled.reduce((sum, i) => sum + i.amountPaid, 0));
                 const saldo = roundCurrency(totalDevido - totalPago);
 
                 return (
@@ -606,7 +606,7 @@ export default function CreditNotes() {
                               const saleInst = allClientEff.filter(i => i.saleId === saleId);
                               const saleNonCancelled = saleInst.filter(i => i.status !== 'cancelled');
                               const saleDevido = roundCurrency(saleNonCancelled.reduce((sum, i) => sum + i.amount - (i.discountApplied || 0), 0));
-                              const salePago = roundCurrency(saleNonCancelled.reduce((sum, i) => sum + i.amountPaid + (i.discountApplied || 0), 0));
+                              const salePago = roundCurrency(saleNonCancelled.reduce((sum, i) => sum + i.amountPaid, 0));
                               const saleSaldo = roundCurrency(saleDevido - salePago);
                               const saleOpenCount = saleInst.filter(i => i.status === 'open').length;
                               const saleOverdueCount = saleInst.filter(i => i.status === 'overdue').length;
