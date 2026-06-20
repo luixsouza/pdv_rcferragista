@@ -59,6 +59,10 @@ export interface Sale {
   status?: 'completed' | 'refunded' | 'crediario_pending' | 'crediario_paid';
   paidAt?: string;
   crediarioPaid?: number;
+  // Cash refunded out of register at estorno (EST-03 option b); excludes haver, which goes to client.storeCredit
+  cashRefundOut?: number;
+  // Ids of installments cancelled by this sale's estorno (EST-02 audit trail; basis for Phase 4 DEV-07 reversal)
+  cancelledInstallmentIds?: string[];
   installmentCount?: number;
   entryAmount?: number;
   cardBrand?: string;
