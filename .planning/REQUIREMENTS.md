@@ -19,8 +19,8 @@
 ### Crediário
 
 - [ ] **CRED-01**: A tela de crediário exibe, por cliente e por venda, o total devido, o total pago, o saldo em aberto e a situação das parcelas (em aberto/vencida/paga/cancelada) de forma clara
-- [ ] **CRED-02**: As parcelas vencidas são identificadas corretamente sempre (não apenas ao abrir a tela de crediário uma vez)
-- [ ] **CRED-03**: O operador consegue visualizar os juros calculados de parcelas vencidas e cobrá-los de forma explícita ao registrar o pagamento
+- [x] **CRED-02**: As parcelas vencidas são identificadas corretamente sempre (não apenas ao abrir a tela de crediário uma vez)
+- [x] **CRED-03**: O operador consegue visualizar os juros calculados de parcelas vencidas e cobrá-los de forma explícita ao registrar o pagamento
 
 ### Estorno de venda no crediário
 
@@ -83,8 +83,8 @@
 | PDF-01 | Phase 1 | Pending |
 | PDF-02 | Phase 1 | Pending |
 | CRED-01 | Phase 2 | Pending |
-| CRED-02 | Phase 2 | Pending |
-| CRED-03 | Phase 2 | Pending |
+| CRED-02 | Phase 2 | Complete |
+| CRED-03 | Phase 2 | Complete |
 | EST-01 | Phase 3 | Pending |
 | EST-02 | Phase 3 | Pending |
 | EST-03 | Phase 3 | Pending |
