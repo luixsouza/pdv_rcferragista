@@ -7,10 +7,17 @@ import { getStoreSettings } from '@/lib/storeInfo';
 
 export function generateReceipt(sale: Sale) {
   const store = getStoreSettings();
+  // Pre-calculate page height to avoid clipping totals/payment block for large orders (BUG-3).
+  // Base of 140mm covers: header, client, separators, totals block, payment block,
+  // optional card-fee block, optional crediário note, and footer.
+  // Each item uses 3mm (name) + 5mm (qty/total) = 8mm.
+  const receiptBase = 140;
+  const perItem = 8;
+  const estimatedHeight = receiptBase + (sale.items.length * perItem);
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [80, 250]
+    format: [80, Math.max(250, estimatedHeight)]
   });
 
   const pageWidth = 80;
@@ -191,10 +198,16 @@ export function downloadReceipt(sale: Sale) {
 
 export function generateRefundReceipt(returnRecord: ReturnRecord, originalSale?: Sale) {
   const store = getStoreSettings();
+  // Pre-calculate page height to avoid clipping totals for large refund documents (BUG-3).
+  // Base of 120mm covers: header, CNPJ, date/ref, client block, separators, totals, and footer.
+  // Each returned item uses 3mm (name) + 5mm (qty/total) = 8mm.
+  const refundBase = 120;
+  const perItem = 8;
+  const estimatedHeight = refundBase + (returnRecord.items.length * perItem);
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [80, 200]
+    format: [80, Math.max(200, estimatedHeight)]
   });
 
   const pageWidth = 80;
