@@ -80,7 +80,8 @@ export interface CreditPayment {
   clientName: string;
   amount: number;
   paymentMethod: 'cash' | 'credit' | 'debit' | 'pix';
-  type?: 'payment' | 'discount';
+  // 'abatimento' added for debt-abatement modality audit trail (DEV-05, Wave 1)
+  type?: 'payment' | 'discount' | 'abatimento';
   // Interest component included within amount — enables auditable interest charges (CRED-03)
   interestAmount?: number;
   createdAt: string;
@@ -114,6 +115,9 @@ export interface ReturnRecord {
   createdAt: string;
   reversedAt?: string;
   cancelledInstallmentIds?: string[];
+  // Reversal key for abatimento modality (DEV-07, Wave 2): maps each abated installment to the
+  // amount that was applied. Optional and retrocompatible with existing electron-store records.
+  abatedInstallments?: { installmentId: string; amount: number }[];
 }
 
 export interface Quote {
