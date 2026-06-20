@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Crediário** - Visibilidade aprimorada de parcelas, identificação correta de vencidas e cobrança explícita de juros (completed 2026-06-20)
 - [x] **Phase 3: Estorno Correto** - Estorno de crediário sem haver indevido, cancelamento automático de parcelas e proteção contra double restock (completed 2026-06-20)
 - [x] **Phase 4: Devolucao Completa** - Devolução pelo PDV, vendas sem cliente, cadastro inline, modalidades (haver / abatimento de débito) e reversão consistente (completed 2026-06-20)
-- [ ] **Phase 5: Venda Fracionada** - Quantidade decimal no PDV, orçamento e cadastro de produtos para unidades de medida (mt, kg, lt, m²)
+- [x] **Phase 5: Venda Fracionada** - Quantidade decimal no PDV, orçamento e cadastro de produtos para unidades de medida (mt, kg, lt, m²) (completed 2026-06-20)
 - [ ] **Phase 6: Layout Fiscal** - PDFs com layout DANFE-NFCe (80mm) e DANFE-NFe (A4), completos e com disclaimer de não-autorização
 
 ## Phase Details
@@ -99,7 +99,7 @@ Plans:
 - [x] 05-01-PLAN.md — Helper compartilhado src/lib/units.ts (isFractionalUnit/quantityStep/parseQuantity/clampQuantityForUnit) (FRAC-01)
 - [x] 05-02-PLAN.md — POS.tsx: input/+/- fracionado por unidade, total roundCurrency e baixa de estoque decimal (FRAC-01, FRAC-02, FRAC-03)
 - [x] 05-03-PLAN.md — Quotes.tsx: quantidade fracionada e totais arredondados no orçamento (FRAC-02, FRAC-04)
-- [ ] 05-04-PLAN.md — Products.tsx: campo de estoque parseInt→parseFloat com step por unidade (FRAC-03)
+- [x] 05-04-PLAN.md — Products.tsx: campo de estoque parseInt→parseFloat com step por unidade (FRAC-03)
 **UI hint**: yes
 
 ### Phase 6: Layout Fiscal
@@ -126,5 +126,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Crediário | 3/3 | Complete   | 2026-06-20 |
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
 | 4. Devolucao Completa | 4/4 | Complete   | 2026-06-20 |
-| 5. Venda Fracionada | 3/4 | In Progress|  |
+| 5. Venda Fracionada | 4/4 | Complete   | 2026-06-20 |
 | 6. Layout Fiscal | 0/? | Not started | - |
