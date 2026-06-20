@@ -39,8 +39,10 @@ import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { printReceipt, downloadReceipt } from '@/lib/generateReceipt';
-import { formatCurrency, paymentLabels } from '@/lib/formatters';
+import { formatCurrency, roundCurrency, paymentLabels } from '@/lib/formatters';
 import { processReturn } from '@/lib/processReturn';
+import { processRefund } from '@/lib/processRefund';
+import type { ProcessRefundResult } from '@/lib/processRefund';
 
 export default function Sales() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -59,6 +61,9 @@ export default function Sales() {
   // Return from sale dialog
   const [returnMode, setReturnMode] = useState(false);
   const [returnItems, setReturnItems] = useState<{ item: SaleItem; quantity: number; selected: boolean }[]>([]);
+
+  // Haver-vs-cash decision dialog for estorno (EST-03)
+  const [pendingRefund, setPendingRefund] = useState<{ sale: Sale; result: ProcessRefundResult } | null>(null);
 
   const handleExport = () => {
     exportToCSV('vendas',
@@ -113,55 +118,105 @@ export default function Sales() {
     .reduce((sum, s) => sum + s.total, 0);
 
   const handleRefund = (sale: Sale) => {
-    // 1. Restore stock
-    const updatedProducts = products.map(product => {
-      const saleItem = sale.items.find(item => item.productId === product.id);
-      if (saleItem) {
-        return {
-          ...product,
-          stock: product.stock + saleItem.quantity
-        };
-      }
-      return product;
+    // Idempotency guard: already refunded
+    if (sale.status === 'refunded') return;
+
+    // Compute all refund effects via the pure core (EST-01..04)
+    const result = processRefund({
+      sale,
+      products,
+      installments,
+      alreadyReturnedQtys: getReturnedQuantities(sale.id),
     });
-    setProducts(updatedProducts);
 
-    // 2. Handle crediário-specific: cancel installments and refund payments
-    const isCrediario = sale.status === 'crediario_pending' || sale.status === 'crediario_paid';
-    let totalPaidBack = 0;
+    // Apply double-restock-safe stock update immediately (no UI decision needed for stock)
+    setProducts(result.updatedProducts);
 
-    if (isCrediario) {
-      // Calculate total already paid on installments
-      const saleInstallments = installments.filter(i => i.saleId === sale.id);
-      totalPaidBack = saleInstallments.reduce((sum, i) => sum + i.amountPaid, 0);
-
-      // Cancel all installments
-      setInstallments(installments.map(inst =>
-        inst.saleId === sale.id ? { ...inst, status: 'cancelled' as const } : inst
-      ));
-
-      // Refund paid amount as store credit
-      if (totalPaidBack > 0 && sale.clientId) {
-        setClients(clients.map(c =>
-          c.id === sale.clientId
-            ? { ...c, storeCredit: (c.storeCredit || 0) + totalPaidBack, updatedAt: new Date().toISOString() }
-            : c
-        ));
-      }
-    }
-
-    // 3. Mark sale as refunded
-    setSales(sales.map(s =>
-      s.id === sale.id ? { ...s, status: 'refunded' as const } : s
+    // Cancel only open/overdue installments (EST-02); uses cancelledInstallmentIds.includes — idempotent
+    setInstallments(installments.map(inst =>
+      result.cancelledInstallmentIds.includes(inst.id)
+        ? { ...inst, status: 'cancelled' as const }
+        : inst
     ));
-    setSelectedSale(null);
 
-    toast({
-      title: "Venda estornada",
-      description: isCrediario && totalPaidBack > 0
-        ? `Estoque restaurado, parcelas canceladas e ${formatCurrency(totalPaidBack)} devolvido como crédito em haver.`
-        : "O estoque foi atualizado e a venda marcada como estornada.",
-    });
+    // Decide flow based on whether a financial decision is needed (EST-03)
+    if (result.isCrediarioSale && result.paidAmount > 0) {
+      // Open the haver-vs-cash decision dialog; persist after user chooses
+      setPendingRefund({ sale, result });
+    } else if (!result.isCrediarioSale) {
+      // Non-crediário sale (cash/card/pix): record as cash-out, storeCredit untouched
+      finalizeRefund(sale, result, 'cash');
+    } else {
+      // Crediário with zero paid: just cancel debt, no financial transfer (EST-01)
+      finalizeRefund(sale, result, 'none');
+    }
+  };
+
+  /**
+   * Apply the final state mutations for a refund after the operator has chosen
+   * the financial mode ('haver' | 'cash' | 'none').
+   *
+   * All three modes persist cancelledInstallmentIds on the refunded sale (EST-02 audit trail).
+   * haver:  increments client.storeCredit by roundCurrency(paidAmount); no cashRefundOut.
+   * cash:   sets sale.cashRefundOut = roundCurrency(paidAmount); no storeCredit change.
+   * none:   no financial transfer (zero-paid crediário — EST-01).
+   */
+  const finalizeRefund = (sale: Sale, result: ProcessRefundResult, mode: 'haver' | 'cash' | 'none') => {
+    const paid = roundCurrency(result.paidAmount);
+
+    if (mode === 'haver' && sale.clientId) {
+      // Haver path: increment client storeCredit by exactly roundCurrency(paidAmount) (T-03-04)
+      setClients(clients.map(c =>
+        c.id === sale.clientId
+          ? { ...c, storeCredit: roundCurrency((c.storeCredit || 0) + paid), updatedAt: new Date().toISOString() }
+          : c
+      ));
+      // Mark sale refunded + persist cancelledInstallmentIds (no cashRefundOut on haver path)
+      setSales(sales.map(s =>
+        s.id === sale.id
+          ? { ...s, status: 'refunded' as const, cancelledInstallmentIds: result.cancelledInstallmentIds }
+          : s
+      ));
+      setSelectedSale(null);
+      setPendingRefund(null);
+      toast({
+        title: "Venda estornada",
+        description: `Estoque restaurado, parcelas canceladas e ${formatCurrency(paid)} adicionado como crédito em haver.`,
+      });
+    } else if (mode === 'cash') {
+      // Cash path: record cashRefundOut on refunded sale (EST-03b); storeCredit untouched (T-03-04)
+      setSales(sales.map(s =>
+        s.id === sale.id
+          ? { ...s, status: 'refunded' as const, cancelledInstallmentIds: result.cancelledInstallmentIds, cashRefundOut: paid }
+          : s
+      ));
+      setSelectedSale(null);
+      setPendingRefund(null);
+      if (result.isCrediarioSale) {
+        toast({
+          title: "Venda estornada",
+          description: `Estoque restaurado, parcelas canceladas. Saída de caixa: ${formatCurrency(paid)}.`,
+        });
+      } else {
+        toast({
+          title: "Venda estornada",
+          description: "O estoque foi atualizado e a venda marcada como estornada.",
+        });
+      }
+    } else {
+      // mode === 'none': zero-paid crediário — cancel debt only, no financial transfer (EST-01)
+      setSales(sales.map(s =>
+        s.id === sale.id
+          ? { ...s, status: 'refunded' as const, cancelledInstallmentIds: result.cancelledInstallmentIds }
+          : s
+      ));
+      setSelectedSale(null);
+      setPendingRefund(null);
+      toast({
+        title: "Venda estornada",
+        description: "Parcelas canceladas. Nenhum valor pago — nenhum haver gerado.",
+      });
+    }
   };
 
   const getStatusBadge = (sale: Sale) => {
@@ -387,7 +442,7 @@ export default function Sales() {
         </div>
       )}
 
-      <Dialog open={!!selectedSale} onOpenChange={() => { setSelectedSale(null); setReturnMode(false); setReturnItems([]); }}>
+      <Dialog open={!!selectedSale} onOpenChange={() => { setSelectedSale(null); setReturnMode(false); setReturnItems([]); setPendingRefund(null); }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalhes da Venda</DialogTitle>
@@ -616,28 +671,28 @@ export default function Sales() {
                             <div>
                               Tem certeza que deseja estornar esta venda?
                               <br />
-                              {'\u2022'} O valor de <strong>{formatCurrency(selectedSale.total)}</strong> será revertido.
+                              {'•'} O valor de <strong>{formatCurrency(selectedSale.total)}</strong> será revertido.
                               <br />
-                              {'\u2022'} Os itens voltarão para o estoque.
+                              {'•'} Os itens voltarão para o estoque.
                               {(selectedSale.status === 'crediario_pending' || selectedSale.status === 'crediario_paid') && (
                                 <>
                                   <br />
-                                  {'\u2022'} As parcelas do crediário serão canceladas.
+                                  {'•'} As parcelas em aberto serão canceladas.
                                   {(() => {
-                                    const paid = installments
+                                    const paid = roundCurrency(installments
                                       .filter(i => i.saleId === selectedSale.id)
-                                      .reduce((sum, i) => sum + i.amountPaid, 0);
+                                      .reduce((sum, i) => sum + i.amountPaid, 0));
                                     return paid > 0 ? (
                                       <>
                                         <br />
-                                        {'\u2022'} <strong>{formatCurrency(paid)}</strong> já pago será devolvido como crédito em haver.
+                                        {'•'} <strong>{formatCurrency(paid)}</strong> ja pago &mdash; voce escolhera como devolver (haver ou dinheiro).
                                       </>
                                     ) : null;
                                   })()}
                                 </>
                               )}
                               <br />
-                              {'\u2022'} Esta ação não pode ser desfeita.
+                              {'•'} Esta acao nao pode ser desfeita.
                             </div>
                           </AlertDialogDescription>
                         </AlertDialogHeader>
@@ -659,6 +714,55 @@ export default function Sales() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* EST-03: Haver-vs-cash decision dialog — shown after estorno computed, before persisting sale status */}
+      <AlertDialog open={!!pendingRefund} onOpenChange={(open) => { if (!open) setPendingRefund(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Devolver valor pago</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {pendingRefund && (
+                  <>
+                    <p>
+                      O cliente pagou <strong>{formatCurrency(roundCurrency(pendingRefund.result.paidAmount))}</strong> nesta venda.
+                      Como deseja devolver este valor?
+                    </p>
+                    {pendingRefund.result.otherPaid > 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Inclui {formatCurrency(pendingRefund.result.otherPaid)} pago em dinheiro/entrada (nao crediario).
+                      </p>
+                    )}
+                    {!pendingRefund.sale.clientId && (
+                      <p className="mt-2 text-xs text-amber-600">
+                        Venda sem cliente vinculado — a opcao Haver nao esta disponivel.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setPendingRefund(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingRefund && finalizeRefund(pendingRefund.sale, pendingRefund.result, 'cash')}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            >
+              Devolver em Dinheiro (Saida de Caixa)
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => pendingRefund && finalizeRefund(pendingRefund.sale, pendingRefund.result, 'haver')}
+              disabled={!pendingRefund?.sale.clientId}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Gerar Haver (Credito)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
