@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, roundCurrency } from '@/lib/formatters';
 import { getStoreSettings } from '@/lib/storeInfo';
 import { ClientCombobox } from '@/components/ClientCombobox';
 import { Switch } from '@/components/ui/switch';
@@ -169,7 +169,7 @@ export default function POS() {
       }
       setCart(cart.map(item =>
         item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.unitPrice }
+          ? { ...item, quantity: item.quantity + 1, total: roundCurrency((item.quantity + 1) * item.unitPrice) }
           : item
       ));
     } else {
@@ -183,7 +183,7 @@ export default function POS() {
         quantity: 1,
         unitPrice: unitPrice,
         costPrice: costPrice,
-        total: unitPrice
+        total: roundCurrency(unitPrice)
       }]);
     }
     toast.success(`${product.name} adicionado`);
@@ -214,7 +214,7 @@ export default function POS() {
 
     setCart(cart.map(i =>
       i.productId === productId
-        ? { ...i, quantity: newQuantity, total: newQuantity * i.unitPrice }
+        ? { ...i, quantity: newQuantity, total: roundCurrency(newQuantity * i.unitPrice) }
         : i
     ));
   };
@@ -238,7 +238,7 @@ export default function POS() {
 
     setCart(cart.map(i =>
       i.productId === productId
-        ? { ...i, quantity: newQuantity, total: newQuantity * i.unitPrice }
+        ? { ...i, quantity: newQuantity, total: roundCurrency(newQuantity * i.unitPrice) }
         : i
     ));
   };
@@ -428,8 +428,8 @@ export default function POS() {
           clientName: client.name,
           number: 0,
           totalInstallments: installmentCount,
-          amount: entryAmount,
-          amountPaid: entryAmount,
+          amount: roundCurrency(entryAmount),
+          amountPaid: roundCurrency(entryAmount),
           dueDate: now.toISOString(),
           status: 'paid',
           paidAt: now.toISOString(),
@@ -438,9 +438,16 @@ export default function POS() {
         });
       }
 
-      // Generate N installments with monthly due dates
+      // Generate N installments with monthly due dates.
+      // Use last-installment residual absorption so that sum of all installments
+      // equals crediarioFinanced exactly (avoids R$0,01 floating-point gap).
+      const baseInstallment = roundCurrency(crediarioFinanced / installmentCount);
       for (let i = 1; i <= installmentCount; i++) {
         const dueDate = addMonths(now, i);
+        const isLastInstallment = i === installmentCount;
+        const installmentAmount = isLastInstallment
+          ? roundCurrency(crediarioFinanced - baseInstallment * (installmentCount - 1))
+          : baseInstallment;
         newInstallments.push({
           id: crypto.randomUUID(),
           saleId: sale.id,
@@ -448,7 +455,7 @@ export default function POS() {
           clientName: client.name,
           number: i,
           totalInstallments: installmentCount,
-          amount: installmentValue,
+          amount: installmentAmount,
           amountPaid: 0,
           dueDate: dueDate.toISOString(),
           status: 'open',
