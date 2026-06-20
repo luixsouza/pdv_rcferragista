@@ -30,8 +30,15 @@ export interface ProcessRefundInput {
  *                                  decides haver vs. cash-out for this amount (Plan 02, EST-03).
  * @param crediarioPaid           - Ground-truth sum of installment.amountPaid for this sale
  *                                  (includes entrada number:0). Never uses stale sale.crediarioPaid.
- * @param otherPaid               - Sum of non-crediário paymentEntries (cash/card/pix up-front).
+ * @param otherPaid               - Total non-crediário paymentEntries (cashPaid + storeCreditUsed).
+ * @param cashPaid                - Cash/card/debit/pix paymentEntries only (excludes store_credit).
+ *                                  This is the portion that should produce a cashRefundOut at estorno.
+ * @param storeCreditUsed         - store_credit paymentEntries. This portion restores client.storeCredit
+ *                                  at estorno — never produces cashRefundOut.
  * @param isCrediarioSale         - Whether the sale has a crediário payment component.
+ * @param isStoreCreditSale       - Whether the sale was paid purely with store_credit (haver).
+ *                                  Mutually exclusive with isCrediarioSale for the dominant path.
+ *                                  When true, estorno should restore storeCredit, never record cashRefundOut.
  */
 export interface ProcessRefundResult {
   updatedProducts: Product[];
@@ -39,7 +46,10 @@ export interface ProcessRefundResult {
   paidAmount: number;
   crediarioPaid: number;
   otherPaid: number;
+  cashPaid: number;
+  storeCreditUsed: number;
   isCrediarioSale: boolean;
+  isStoreCreditSale: boolean;
 }
 
 /**
@@ -54,6 +64,8 @@ export interface ProcessRefundResult {
  *   EST-04: updatedProducts subtracts alreadyReturnedQtys before restocking (no double restock).
  *           Respects 'mil' unit /1000 scaling rule.
  *   Mixed: paidAmount = crediarioPaid + otherPaid (no silent under-refund for split sales).
+ *   CR-02: store_credit sales detected via isStoreCreditSale; routed to haver restore, never cashRefundOut.
+ *   WR-01: cashPaid and storeCreditUsed separated so each portion is refunded via the correct channel.
  */
 export function processRefund(input: ProcessRefundInput): ProcessRefundResult {
   const { sale, products, installments, alreadyReturnedQtys } = input;
@@ -66,6 +78,18 @@ export function processRefund(input: ProcessRefundInput): ProcessRefundResult {
     sale.status === 'crediario_pending' ||
     sale.status === 'crediario_paid';
 
+  // -- isStoreCreditSale (CR-02) -----------------------------------------------
+  // True when the sale was paid entirely with store_credit (haver).
+  // Mutually exclusive with a pure crediário sale in the dominant use-case.
+  // For a mixed crediário+store_credit sale, isCrediarioSale takes precedence
+  // and storeCreditUsed (WR-01) handles the haver portion separately.
+  const isStoreCreditSale =
+    !isCrediarioSale && (
+      sale.paymentMethod === 'store_credit' ||
+      (sale.paymentEntries?.length > 0 &&
+        sale.paymentEntries.every(e => e.method === 'store_credit'))
+    );
+
   // -- crediarioPaid (ground truth) -------------------------------------------
   // Sum installment.amountPaid for all installments of this sale.
   // Includes the entrada (number: 0, always 'paid') — its amountPaid is part of the
@@ -76,20 +100,34 @@ export function processRefund(input: ProcessRefundInput): ProcessRefundResult {
     saleInstallments.reduce((sum, i) => sum + i.amountPaid, 0)
   );
 
-  // -- otherPaid ---------------------------------------------------------------
-  // Non-crediário portion paid up front (cash/card/pix paymentEntries).
-  // For a pure crediário sale with no such entries this is 0.
-  // For a split sale (e.g. R$100 cash entry + R$300 crediário) this captures the cash half.
-  const otherPaid = roundCurrency(
+  // -- cashPaid (WR-01) --------------------------------------------------------
+  // Cash/card/debit/pix paymentEntries only. This is the portion that justifies a
+  // cashRefundOut at estorno — real money entered the register for these.
+  const cashPaid = roundCurrency(
     (sale.paymentEntries ?? [])
-      .filter(e => e.method !== 'crediario')
+      .filter(e => e.method !== 'crediario' && e.method !== 'store_credit')
       .reduce((sum, e) => sum + e.amount, 0)
   );
+
+  // -- storeCreditUsed (WR-01) -------------------------------------------------
+  // store_credit paymentEntries. At estorno, this portion must restore client.storeCredit
+  // rather than produce cashRefundOut (no cash ever entered the register for haver).
+  const storeCreditUsed = roundCurrency(
+    (sale.paymentEntries ?? [])
+      .filter(e => e.method === 'store_credit')
+      .reduce((sum, e) => sum + e.amount, 0)
+  );
+
+  // -- otherPaid ---------------------------------------------------------------
+  // Total non-crediário paymentEntries = cashPaid + storeCreditUsed.
+  // Kept for paidAmount calculation and backward-compatible result shape.
+  const otherPaid = roundCurrency(cashPaid + storeCreditUsed);
 
   // -- paidAmount --------------------------------------------------------------
   // For crediário sales: full amount actually paid (crediário + other) so Plan 02 can
   // correctly inform the operator about the full refund due (no silent under-refund).
-  // For non-crediário sales: sale.total (cash/card/pix — full reversal, existing behaviour).
+  // For store_credit sales (CR-02): sale.total (the haver that was spent — full reversal).
+  // For non-crediário/non-store_credit sales: sale.total (cash/card/pix — full reversal).
   const paidAmount = isCrediarioSale
     ? roundCurrency(crediarioPaid + otherPaid)
     : roundCurrency(sale.total);
@@ -125,6 +163,9 @@ export function processRefund(input: ProcessRefundInput): ProcessRefundResult {
     paidAmount,
     crediarioPaid,
     otherPaid,
+    cashPaid,
+    storeCreditUsed,
     isCrediarioSale,
+    isStoreCreditSale,
   };
 }

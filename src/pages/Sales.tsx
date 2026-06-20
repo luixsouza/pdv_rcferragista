@@ -129,20 +129,16 @@ export default function Sales() {
       alreadyReturnedQtys: getReturnedQuantities(sale.id),
     });
 
-    // Apply double-restock-safe stock update immediately (no UI decision needed for stock)
-    setProducts(result.updatedProducts);
-
-    // Cancel only open/overdue installments (EST-02); uses cancelledInstallmentIds.includes — idempotent
-    setInstallments(installments.map(inst =>
-      result.cancelledInstallmentIds.includes(inst.id)
-        ? { ...inst, status: 'cancelled' as const }
-        : inst
-    ));
-
-    // Decide flow based on whether a financial decision is needed (EST-03)
+    // CR-01: Do NOT apply setProducts / setInstallments here.
+    // All side effects are deferred to finalizeRefund so that cancelling the
+    // haver/cash dialog leaves the sale fully intact (no stock mutation, no
+    // cancelled installments, no status change) — preventing double-restock on retry.
     if (result.isCrediarioSale && result.paidAmount > 0) {
-      // Open the haver-vs-cash decision dialog; persist after user chooses
+      // Open the haver-vs-cash decision dialog; side effects applied only after operator commits
       setPendingRefund({ sale, result });
+    } else if (result.isStoreCreditSale) {
+      // CR-02: store_credit sale — restore haver to client, never record cashRefundOut
+      finalizeRefund(sale, result, 'haver');
     } else if (!result.isCrediarioSale) {
       // Non-crediário sale (cash/card/pix): record as cash-out, storeCredit untouched
       finalizeRefund(sale, result, 'cash');
@@ -156,16 +152,30 @@ export default function Sales() {
    * Apply the final state mutations for a refund after the operator has chosen
    * the financial mode ('haver' | 'cash' | 'none').
    *
+   * CR-01: Stock and installment changes are applied HERE (not in handleRefund) so that
+   *        cancelling the decision dialog leaves the sale completely unchanged.
+   *
    * All three modes persist cancelledInstallmentIds on the refunded sale (EST-02 audit trail).
    * haver:  increments client.storeCredit by roundCurrency(paidAmount); no cashRefundOut.
-   * cash:   sets sale.cashRefundOut = roundCurrency(paidAmount); no storeCredit change.
+   *         Also used for CR-02 store_credit sales (storeCredit restore, no cashRefundOut).
+   * cash:   sets sale.cashRefundOut = roundCurrency(cashPaid) — real cash only (WR-01);
+   *         if storeCreditUsed > 0, also restores that portion to client.storeCredit.
    * none:   no financial transfer (zero-paid crediário — EST-01).
    */
   const finalizeRefund = (sale: Sale, result: ProcessRefundResult, mode: 'haver' | 'cash' | 'none') => {
     const paid = roundCurrency(result.paidAmount);
 
+    // CR-01: Apply stock + installment changes exactly once, only after operator commits.
+    setProducts(result.updatedProducts);
+    setInstallments(installments.map(inst =>
+      result.cancelledInstallmentIds.includes(inst.id)
+        ? { ...inst, status: 'cancelled' as const }
+        : inst
+    ));
+
     if (mode === 'haver' && sale.clientId) {
       // Haver path: increment client storeCredit by exactly roundCurrency(paidAmount) (T-03-04)
+      // Also used for CR-02: store_credit sales restore haver, never record cashRefundOut.
       setClients(clients.map(c =>
         c.id === sale.clientId
           ? { ...c, storeCredit: roundCurrency((c.storeCredit || 0) + paid), updatedAt: new Date().toISOString() }
@@ -184,10 +194,20 @@ export default function Sales() {
         description: `Estoque restaurado, parcelas canceladas e ${formatCurrency(paid)} adicionado como crédito em haver.`,
       });
     } else if (mode === 'cash') {
-      // Cash path: record cashRefundOut on refunded sale (EST-03b); storeCredit untouched (T-03-04)
+      // Cash path: cashRefundOut = only the real cash portion (WR-01: excludes storeCreditUsed)
+      const cashOut = roundCurrency(result.cashPaid);
+      // WR-01: if the sale had a store_credit entry mixed in, restore that portion to client haver
+      if (result.storeCreditUsed > 0 && sale.clientId) {
+        setClients(clients.map(c =>
+          c.id === sale.clientId
+            ? { ...c, storeCredit: roundCurrency((c.storeCredit || 0) + result.storeCreditUsed), updatedAt: new Date().toISOString() }
+            : c
+        ));
+      }
+      // Record cashRefundOut on refunded sale (EST-03b); storeCredit untouched for non-haver portion (T-03-04)
       setSales(sales.map(s =>
         s.id === sale.id
-          ? { ...s, status: 'refunded' as const, cancelledInstallmentIds: result.cancelledInstallmentIds, cashRefundOut: paid }
+          ? { ...s, status: 'refunded' as const, cancelledInstallmentIds: result.cancelledInstallmentIds, cashRefundOut: cashOut }
           : s
       ));
       setSelectedSale(null);
@@ -195,7 +215,7 @@ export default function Sales() {
       if (result.isCrediarioSale) {
         toast({
           title: "Venda estornada",
-          description: `Estoque restaurado, parcelas canceladas. Saída de caixa: ${formatCurrency(paid)}.`,
+          description: `Estoque restaurado, parcelas canceladas. Saída de caixa: ${formatCurrency(cashOut)}.`,
         });
       } else {
         toast({
@@ -335,7 +355,12 @@ export default function Sales() {
   };
 
   const canRefund = (sale: Sale) => {
-    return sale.status === 'completed' || sale.status === 'crediario_paid' || sale.status === 'crediario_pending' || !sale.status;
+    if (sale.status === 'refunded') return false;
+    // WR-02: Defense-in-depth — if cancelledInstallmentIds already set, a prior (partial) estorno
+    // already ran. Block re-estorno to prevent double-restock and double-cancel.
+    if (sale.cancelledInstallmentIds && sale.cancelledInstallmentIds.length > 0) return false;
+    return sale.status === 'completed' || sale.status === 'crediario_paid' ||
+      sale.status === 'crediario_pending' || !sale.status;
   };
 
   const canReturn = (sale: Sale) => {
@@ -671,7 +696,10 @@ export default function Sales() {
                             <div>
                               Tem certeza que deseja estornar esta venda?
                               <br />
-                              {'•'} O valor de <strong>{formatCurrency(selectedSale.total)}</strong> será revertido.
+                              {(selectedSale.status === 'crediario_pending' || selectedSale.status === 'crediario_paid')
+                                ? <>{'•'} A dívida de <strong>{formatCurrency(selectedSale.total)}</strong> será cancelada (apenas o valor já pago será devolvido).</>
+                                : <>{'•'} O valor de <strong>{formatCurrency(selectedSale.total)}</strong> será revertido.</>
+                              }
                               <br />
                               {'•'} Os itens voltarão para o estoque.
                               {(selectedSale.status === 'crediario_pending' || selectedSale.status === 'crediario_paid') && (
@@ -728,9 +756,14 @@ export default function Sales() {
                       O cliente pagou <strong>{formatCurrency(roundCurrency(pendingRefund.result.paidAmount))}</strong> nesta venda.
                       Como deseja devolver este valor?
                     </p>
-                    {pendingRefund.result.otherPaid > 0 && (
+                    {pendingRefund.result.cashPaid > 0 && (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Inclui {formatCurrency(pendingRefund.result.otherPaid)} pago em dinheiro/entrada (nao crediario).
+                        Inclui {formatCurrency(pendingRefund.result.cashPaid)} pago em dinheiro/cartão/entrada (não crediário).
+                      </p>
+                    )}
+                    {pendingRefund.result.storeCreditUsed > 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Inclui {formatCurrency(pendingRefund.result.storeCreditUsed)} pago em crédito em haver (será restaurado ao cliente).
                       </p>
                     )}
                     {!pendingRefund.sale.clientId && (
