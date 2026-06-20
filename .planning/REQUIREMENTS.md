@@ -36,8 +36,8 @@
 - [ ] **DEV-03**: Durante a devolução, o operador pode cadastrar/associar um cliente ao processo
 - [x] **DEV-04**: A devolução na modalidade "com haver" gera crédito para o cliente limitado ao valor efetivamente pago (corrige BUG-1)
 - [x] **DEV-05**: A devolução na modalidade "abatimento de débito" não gera haver e abate o valor em parcela(s) escolhida(s) pelo operador no crediário do cliente
-- [ ] **DEV-06**: A devolução pela página dedicada cobre também vendas em `crediario_pending` (corrige BUG-4, consistente com a tela de Vendas)
-- [ ] **DEV-07**: Reverter uma devolução que cancelou parcelas restaura essas parcelas (usando `cancelledInstallmentIds`)
+- [x] **DEV-06**: A devolução pela página dedicada cobre também vendas em `crediario_pending` (corrige BUG-4, consistente com a tela de Vendas)
+- [x] **DEV-07**: Reverter uma devolução que cancelou parcelas restaura essas parcelas (usando `cancelledInstallmentIds`)
 
 ### Venda por quantidade fracionada
 
@@ -94,8 +94,8 @@
 | DEV-03 | Phase 4 | Pending |
 | DEV-04 | Phase 4 | Complete |
 | DEV-05 | Phase 4 | Complete |
-| DEV-06 | Phase 4 | Pending |
-| DEV-07 | Phase 4 | Pending |
+| DEV-06 | Phase 4 | Complete |
+| DEV-07 | Phase 4 | Complete |
 | FRAC-01 | Phase 5 | Pending |
 | FRAC-02 | Phase 5 | Pending |
 | FRAC-03 | Phase 5 | Pending |
