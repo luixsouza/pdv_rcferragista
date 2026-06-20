@@ -7,6 +7,7 @@ import { Product } from '@/types';
 import { Package, Plus, Search, Pencil, Trash2, RefreshCw, FileDown, Percent } from 'lucide-react';
 import { exportToCSV } from '@/lib/csvExport';
 import { generateProductCode } from '@/lib/generateProductCode';
+import { quantityStep, clampQuantityForUnit } from '@/lib/units';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,10 +132,12 @@ export default function Products() {
     const now = new Date().toISOString();
     const code = formData.code.trim() || generateProductCode(formData.category || 'Outros');
 
+    const clampedStock = clampQuantityForUnit(formData.stock, formData.unit);
+
     if (editingProduct) {
       setProducts(products.map(p =>
         p.id === editingProduct.id
-          ? { ...p, ...formData, code, updatedAt: now }
+          ? { ...p, ...formData, code, stock: clampedStock, updatedAt: now }
           : p
       ));
       toast.success('Produto atualizado com sucesso');
@@ -142,6 +145,7 @@ export default function Products() {
       const newProduct: Product = {
         ...formData,
         code,
+        stock: clampedStock,
         id: crypto.randomUUID(),
         createdAt: now,
         updatedAt: now
@@ -320,8 +324,10 @@ export default function Products() {
                   <Input
                     id="stock"
                     type="number"
+                    min="0"
+                    step={quantityStep(formData.unit)}
                     value={formData.stock}
-                    onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                    onChange={e => setFormData({ ...formData, stock: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
                 <div className="flex gap-2 pt-4">
