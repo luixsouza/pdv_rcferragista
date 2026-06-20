@@ -31,7 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Toda lógica de devolução (criar ReturnRecord, restaurar estoque, gerar/capear haver, cancelar parcelas) executa a partir de um único módulo `src/lib/processReturn.ts`
   4. Cálculos de parcela e total de devolução usam `roundCurrency()` e somam exatamente o valor correto (sem erro de ponto flutuante de R$0,01)
   5. O tipo `ReturnRecord` registra `cancelledInstallmentIds` e `SaleItem` aceita quantidade decimal, sem quebrar dados já gravados
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — roundCurrency helper (FND-01) + ReturnRecord/SaleItem type changes (FND-03) + arredondamento nas parcelas/carrinho do POS
+- [ ] 01-02-PLAN.md — Altura dinâmica dos PDFs de cupom e orçamento (PDF-01, PDF-02)
+- [ ] 01-03-PLAN.md — Extração de src/lib/processReturn.ts puro com paridade comportamental, consumido por Sales e Returns (FND-02)
 
 ### Phase 2: Crediário
 **Goal**: O operador enxerga o estado real do crediário de cada cliente — saldo, situação das parcelas e juros — e consegue cobrar juros de forma explícita
@@ -100,7 +104,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fundação e PDF | 0/? | Not started | - |
+| 1. Fundação e PDF | 0/3 | Not started | - |
 | 2. Crediário | 0/? | Not started | - |
 | 3. Estorno Correto | 0/? | Not started | - |
 | 4. Devolucao Completa | 0/? | Not started | - |
