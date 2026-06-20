@@ -216,11 +216,14 @@ export async function generateDANFE(sale: Sale, client?: Client, products?: Prod
   const grouped = formatAccessKeyGroups(PLACEHOLDER_ACCESS_KEY);
   doc.setFontSize(5.5);
   doc.setFont('helvetica', 'normal');
-  // Split into two lines of ~22 chars each for display
-  const halfLen = Math.floor(grouped.length / 2);
-  const splitIdx = grouped.indexOf(' ', halfLen);
-  doc.text(grouped.slice(0, splitIdx), col2X + 1, q0Y + 21, { maxWidth: col2W - 2 });
-  doc.text(grouped.slice(splitIdx + 1), col2X + 1, q0Y + 25, { maxWidth: col2W - 2 });
+  // Split into two lines at a word boundary near the midpoint
+  const splitIdx = grouped.lastIndexOf(' ', Math.ceil(grouped.length / 2));
+  if (splitIdx > 0) {
+    doc.text(grouped.slice(0, splitIdx), col2X + 1, q0Y + 21, { maxWidth: col2W - 2 });
+    doc.text(grouped.slice(splitIdx + 1), col2X + 1, q0Y + 25, { maxWidth: col2W - 2 });
+  } else {
+    doc.text(grouped, col2X + 1, q0Y + 21, { maxWidth: col2W - 2 });
+  }
 
   doc.setFontSize(5);
   doc.text(
