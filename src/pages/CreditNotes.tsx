@@ -245,7 +245,8 @@ export default function CreditNotes() {
     setInstallments(updatedInstallments);
 
     // Update sale crediarioPaid and check if all installments are paid
-    const saleInstallments = updatedInstallments.filter(i => i.saleId === selectedInstallment.saleId && i.number > 0);
+    // Exclude cancelled installments so a sale with partial returns can still reach crediario_paid.
+    const saleInstallments = updatedInstallments.filter(i => i.saleId === selectedInstallment.saleId && i.number > 0 && i.status !== 'cancelled');
     const allPaid = saleInstallments.every(i => i.status === 'paid' || (i.id === selectedInstallment.id && isFullyPaid));
     // Sum installment amountPaid values (principal only) — interest is added separately below.
     const totalPrincipalOnSale = saleInstallments.reduce((sum, i) => {
@@ -350,7 +351,8 @@ export default function CreditNotes() {
     setInstallments(updatedInstallments);
 
     // Check if all installments are paid for this sale
-    const saleInstallments = updatedInstallments.filter(i => i.saleId === discountInstallment.saleId && i.number > 0);
+    // Exclude cancelled installments so a sale with partial returns can still reach crediario_paid.
+    const saleInstallments = updatedInstallments.filter(i => i.saleId === discountInstallment.saleId && i.number > 0 && i.status !== 'cancelled');
     const allPaid = saleInstallments.every(i => {
       const disc = i.discountApplied || 0;
       return i.status === 'paid' || i.amountPaid >= (i.amount - disc - 0.01);
