@@ -45,7 +45,11 @@ Plans:
   1. A tela de crediário exibe, por cliente e por venda, o total devido, total pago, saldo em aberto e status de cada parcela (em aberto / vencida / paga / cancelada)
   2. Parcelas que vencem enquanto o aplicativo está aberto (sem navegar para Crediário) aparecem como vencidas na próxima vez que o operador consulta qualquer tela que exiba parcelas
   3. Ao registrar pagamento de uma parcela vencida, o operador vê o valor dos juros calculados e pode confirmar a cobrança antes de concluir o pagamento
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 02-01-PLAN.md — Helper compartilhado de overdue (src/lib/installmentStatus.ts), wiring no POS e campo interestAmount em CreditPayment (CRED-02, CRED-03)
+- [ ] 02-02-PLAN.md — Status de vencida on-the-fly + resumo por cliente/por venda (devido/pago/saldo/contagem de status) no CreditNotes (CRED-01, CRED-02)
+- [ ] 02-03-PLAN.md — Ação explícita "cobrar juros" no diálogo de pagamento + registro auditável do juros (CRED-03)
 **UI hint**: yes
 
 ### Phase 3: Estorno Correto
@@ -105,7 +109,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Fundação e PDF | 3/3 | Complete   | 2026-06-20 |
-| 2. Crediário | 0/? | Not started | - |
+| 2. Crediário | 0/3 | Planned | - |
 | 3. Estorno Correto | 0/? | Not started | - |
 | 4. Devolucao Completa | 0/? | Not started | - |
 | 5. Venda Fracionada | 0/? | Not started | - |
