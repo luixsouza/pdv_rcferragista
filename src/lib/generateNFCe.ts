@@ -164,7 +164,10 @@ export async function generateNFCe(sale: Sale, client?: Client, products?: Produ
 
     // Line 2: qty × unit price = total (right-aligned values)
     const unitLabel = (products?.find(p => p.id === item.productId)?.unit ?? 'UN').toUpperCase();
-    const qtyStr = `    ${item.quantity} ${unitLabel} x ${formatCurrency(item.unitPrice)}`;
+    const qtyDisplay = Number.isInteger(item.quantity)
+      ? String(item.quantity)
+      : item.quantity.toLocaleString('pt-BR');
+    const qtyStr = `    ${qtyDisplay} ${unitLabel} x ${formatCurrency(item.unitPrice)}`;
     const totalStr = formatCurrency(item.total);
     doc.text(qtyStr, MARGIN, y);
     doc.text(totalStr, TEXT_RIGHT, y, { align: 'right' });

@@ -518,7 +518,9 @@ export async function generateDANFE(sale: Sale, client?: Client, products?: Prod
     const cst = PLACEHOLDER_CST;
     const cfop = PLACEHOLDER_CFOP;
     const un = (products?.find(p => p.id === item.productId)?.unit ?? 'UN').toUpperCase();
-    const qtde = String(item.quantity);
+    const qtde = Number.isInteger(item.quantity)
+      ? String(item.quantity)
+      : item.quantity.toLocaleString('pt-BR');
     const vlUnit = item.unitPrice.toFixed(2).replace('.', ',');
     const vlTotal = item.total.toFixed(2).replace('.', ',');
     const zero = '0,00';
