@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { printRefundReceipt, downloadRefundReceipt } from '@/lib/generateReceipt';
 import { processReturn, processAbatement } from '@/lib/processReturn';
 import { getEffectiveStatus } from '@/lib/installmentStatus';
+import { formatCurrency, roundCurrency } from '@/lib/formatters';
 
 export default function Returns() {
   const [sales, setSales] = useLocalStorage<Sale[]>('sales', []);
@@ -55,13 +56,6 @@ export default function Returns() {
 
   // History
   const [searchHistory, setSearchHistory] = useState('');
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
 
   const client = clients.find(c => c.id === selectedClient);
 
@@ -343,7 +337,7 @@ export default function Returns() {
     const updatedClients = ret.creditGenerated > 0 && ret.clientId !== 'sem-cliente'
       ? clients.map(c => {
           if (c.id !== ret.clientId) return c;
-          const newCredit = Math.max(0, (c.storeCredit || 0) - ret.creditGenerated);
+          const newCredit = roundCurrency(Math.max(0, (c.storeCredit || 0) - ret.creditGenerated));
           return { ...c, storeCredit: newCredit, updatedAt: new Date().toISOString() };
         })
       : clients;
