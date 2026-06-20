@@ -31,9 +31,9 @@
 
 ### Devolução
 
-- [ ] **DEV-01**: É possível iniciar uma devolução diretamente pela tela do PDV
-- [ ] **DEV-02**: É possível devolver itens de vendas feitas sem cliente cadastrado
-- [ ] **DEV-03**: Durante a devolução, o operador pode cadastrar/associar um cliente ao processo
+- [x] **DEV-01**: É possível iniciar uma devolução diretamente pela tela do PDV
+- [x] **DEV-02**: É possível devolver itens de vendas feitas sem cliente cadastrado
+- [x] **DEV-03**: Durante a devolução, o operador pode cadastrar/associar um cliente ao processo
 - [x] **DEV-04**: A devolução na modalidade "com haver" gera crédito para o cliente limitado ao valor efetivamente pago (corrige BUG-1)
 - [x] **DEV-05**: A devolução na modalidade "abatimento de débito" não gera haver e abate o valor em parcela(s) escolhida(s) pelo operador no crediário do cliente
 - [x] **DEV-06**: A devolução pela página dedicada cobre também vendas em `crediario_pending` (corrige BUG-4, consistente com a tela de Vendas)
@@ -89,9 +89,9 @@
 | EST-02 | Phase 3 | Complete |
 | EST-03 | Phase 3 | Complete |
 | EST-04 | Phase 3 | Complete |
-| DEV-01 | Phase 4 | Pending |
-| DEV-02 | Phase 4 | Pending |
-| DEV-03 | Phase 4 | Pending |
+| DEV-01 | Phase 4 | Complete |
+| DEV-02 | Phase 4 | Complete |
+| DEV-03 | Phase 4 | Complete |
 | DEV-04 | Phase 4 | Complete |
 | DEV-05 | Phase 4 | Complete |
 | DEV-06 | Phase 4 | Complete |

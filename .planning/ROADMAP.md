@@ -80,7 +80,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — Upgrade de src/lib/processReturn.ts: haver capping (DEV-04), conjunto cancelledInstallmentIds e função pura processAbatement (DEV-05) + CreditPayment.type 'abatimento' (DEV-04, DEV-05)
 - [x] 04-02-PLAN.md — Returns.tsx: modalidade haver/abatimento, eligibleSales com crediario_pending, cancelamento de parcelas e reversão consistente (DEV-04, DEV-05, DEV-06, DEV-07)
-- [ ] 04-03-PLAN.md — POS.tsx: entrada de devolução pelo PDV, vendas sem cliente e cadastro/associação inline de cliente (DEV-01, DEV-02, DEV-03, DEV-04)
+- [x] 04-03-PLAN.md — POS.tsx: entrada de devolução pelo PDV, vendas sem cliente e cadastro/associação inline de cliente (DEV-01, DEV-02, DEV-03, DEV-04)
 - [ ] 04-04-PLAN.md — Sales.tsx: consistência do caminho de devolução com o capping + cancelamento de parcelas (DEV-04, DEV-06)
 **UI hint**: yes
 
@@ -119,6 +119,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Fundação e PDF | 3/3 | Complete   | 2026-06-20 |
 | 2. Crediário | 3/3 | Complete   | 2026-06-20 |
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
-| 4. Devolucao Completa | 2/4 | In Progress|  |
+| 4. Devolucao Completa | 3/4 | In Progress|  |
 | 5. Venda Fracionada | 0/? | Not started | - |
 | 6. Layout Fiscal | 0/? | Not started | - |
