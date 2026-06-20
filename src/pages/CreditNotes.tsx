@@ -56,6 +56,9 @@ export default function CreditNotes() {
   // Resumo tab client
   const [resumoClient, setResumoClient] = useState('');
 
+  // Histórico tab search (separate from selectedClientFilter to avoid corrupting Parcelas filter)
+  const [historySearch, setHistorySearch] = useState('');
+
   // Interest charging state: tracks how much interest the operator explicitly opted to charge.
   // Default 0 (not charged). Reset whenever the payment dialog opens or closes.
   const [chargedInterest, setChargedInterest] = useState(0);
@@ -847,14 +850,19 @@ export default function CreditNotes() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por cliente ou data..."
-              value={selectedClientFilter}
-              onChange={e => setSelectedClientFilter(e.target.value)}
+              value={historySearch}
+              onChange={e => setHistorySearch(e.target.value)}
               className="pl-10"
             />
           </div>
 
           {(() => {
             const filteredHistory = creditPayments
+              .filter(p =>
+                !historySearch ||
+                p.clientName.toLowerCase().includes(historySearch.toLowerCase()) ||
+                p.createdAt.includes(historySearch)
+              )
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
             return filteredHistory.length === 0 ? (
