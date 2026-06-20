@@ -497,10 +497,10 @@ export default function Sales() {
                       <Button variant="ghost" size="icon" onClick={() => downloadReceipt(sale)} title="Baixar PDF">
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => void printNFCe(sale, clientFor(sale))} title="Gerar NFCe (cupom)">
+                      <Button variant="ghost" size="icon" onClick={() => printNFCe(sale, clientFor(sale)).catch(() => toast({ title: 'Erro ao gerar NFCe', description: 'Falha ao gerar o documento.' }))} title="Gerar NFCe (cupom)">
                         <Receipt className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => void printDANFE(sale, clientFor(sale))} title="Gerar DANFE (NFe)">
+                      <Button variant="ghost" size="icon" onClick={() => printDANFE(sale, clientFor(sale)).catch(() => toast({ title: 'Erro ao gerar DANFE', description: 'Falha ao gerar o documento.' }))} title="Gerar DANFE (NFe)">
                         <FileText className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => setSelectedSale(sale)} title="Ver detalhes">
@@ -637,22 +637,22 @@ export default function Sales() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => void printNFCe(selectedSale, clientFor(selectedSale))}>
+                  <Button variant="outline" className="flex-1" onClick={() => printNFCe(selectedSale, clientFor(selectedSale)).catch(() => toast({ title: 'Erro ao gerar NFCe', description: 'Falha ao gerar o documento.' }))}>
                     <Receipt className="h-4 w-4 mr-2" />
                     Gerar NFCe
                   </Button>
-                  <Button variant="outline" className="flex-1" onClick={() => void downloadNFCe(selectedSale, clientFor(selectedSale))}>
+                  <Button variant="outline" className="flex-1" onClick={() => downloadNFCe(selectedSale, clientFor(selectedSale)).catch(() => toast({ title: 'Erro ao baixar NFCe', description: 'Falha ao gerar o documento.' }))}>
                     <Download className="h-4 w-4 mr-2" />
                     Baixar NFCe
                   </Button>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => void printDANFE(selectedSale, clientFor(selectedSale))}>
+                  <Button variant="outline" className="flex-1" onClick={() => printDANFE(selectedSale, clientFor(selectedSale)).catch(() => toast({ title: 'Erro ao gerar DANFE', description: 'Falha ao gerar o documento.' }))}>
                     <FileText className="h-4 w-4 mr-2" />
                     Gerar DANFE
                   </Button>
-                  <Button variant="outline" className="flex-1" onClick={() => void downloadDANFE(selectedSale, clientFor(selectedSale))}>
+                  <Button variant="outline" className="flex-1" onClick={() => downloadDANFE(selectedSale, clientFor(selectedSale)).catch(() => toast({ title: 'Erro ao baixar DANFE', description: 'Falha ao gerar o documento.' }))}>
                     <Download className="h-4 w-4 mr-2" />
                     Baixar DANFE
                   </Button>
