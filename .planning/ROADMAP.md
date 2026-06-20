@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Estorno Correto** - Estorno de crediário sem haver indevido, cancelamento automático de parcelas e proteção contra double restock (completed 2026-06-20)
 - [x] **Phase 4: Devolucao Completa** - Devolução pelo PDV, vendas sem cliente, cadastro inline, modalidades (haver / abatimento de débito) e reversão consistente (completed 2026-06-20)
 - [x] **Phase 5: Venda Fracionada** - Quantidade decimal no PDV, orçamento e cadastro de produtos para unidades de medida (mt, kg, lt, m²) (completed 2026-06-20)
-- [ ] **Phase 6: Layout Fiscal** - PDFs com layout DANFE-NFCe (80mm) e DANFE-NFe (A4), completos e com disclaimer de não-autorização
+- [x] **Phase 6: Layout Fiscal** - PDFs com layout DANFE-NFCe (80mm) e DANFE-NFe (A4), completos e com disclaimer de não-autorização (completed 2026-06-20)
 
 ## Phase Details
 
@@ -115,7 +115,7 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md — Instala bwip-js+qrcode, helpers fiscais (placeholders/barcode/QR) e gerador NFCe 80mm com QR e disclaimer (FISC-01, FISC-03)
 - [x] 06-02-PLAN.md — Gerador DANFE A4 com 8 quadros, tabela fiscal zerada, barcode CODE-128 e paginação (FISC-02, FISC-03)
-- [ ] 06-03-PLAN.md — Ações "Gerar NFCe (cupom)" e "Gerar DANFE (NFe)" em Sales.tsx, adicionais ao cupom não fiscal (FISC-01, FISC-02)
+- [x] 06-03-PLAN.md — Ações "Gerar NFCe (cupom)" e "Gerar DANFE (NFe)" em Sales.tsx, adicionais ao cupom não fiscal (FISC-01, FISC-02)
 **UI hint**: yes
 
 ## Progress
@@ -131,4 +131,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
 | 4. Devolucao Completa | 4/4 | Complete   | 2026-06-20 |
 | 5. Venda Fracionada | 4/4 | Complete   | 2026-06-20 |
-| 6. Layout Fiscal | 2/3 | In Progress|  |
+| 6. Layout Fiscal | 3/3 | Complete   | 2026-06-20 |
