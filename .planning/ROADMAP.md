@@ -96,7 +96,7 @@ Plans:
   5. O orçamento aceita e exibe quantidade fracionada para produtos de medida, com total correto
 **Plans**: 4 plans
 Plans:
-- [ ] 05-01-PLAN.md — Helper compartilhado src/lib/units.ts (isFractionalUnit/quantityStep/parseQuantity/clampQuantityForUnit) (FRAC-01)
+- [x] 05-01-PLAN.md — Helper compartilhado src/lib/units.ts (isFractionalUnit/quantityStep/parseQuantity/clampQuantityForUnit) (FRAC-01)
 - [ ] 05-02-PLAN.md — POS.tsx: input/+/- fracionado por unidade, total roundCurrency e baixa de estoque decimal (FRAC-01, FRAC-02, FRAC-03)
 - [ ] 05-03-PLAN.md — Quotes.tsx: quantidade fracionada e totais arredondados no orçamento (FRAC-02, FRAC-04)
 - [ ] 05-04-PLAN.md — Products.tsx: campo de estoque parseInt→parseFloat com step por unidade (FRAC-03)
@@ -126,5 +126,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Crediário | 3/3 | Complete   | 2026-06-20 |
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
 | 4. Devolucao Completa | 4/4 | Complete   | 2026-06-20 |
-| 5. Venda Fracionada | 0/4 | Planned | - |
+| 5. Venda Fracionada | 1/4 | In Progress|  |
 | 6. Layout Fiscal | 0/? | Not started | - |

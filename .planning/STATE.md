@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 03 Plan 01 complete — processRefund.ts pure module (EST-01/EST-02/EST-04)
-last_updated: "2026-06-20T16:16:53.861Z"
+status: executing
+stopped_at: Phase 05 Plan 01 complete — src/lib/units.ts fractional-unit helpers (FRAC-01)
+last_updated: "2026-06-20T16:40:04.378Z"
 last_activity: 2026-06-20
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
   percent: 67
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Core value:** O lojista gere vendas, crediário e devoluções com valores financeiros corretos (sem haver indevido nem parcelas fantasmas) e imprime documentos completos e legíveis.
-**Current focus:** Phase 04 — Devolução Completa
+**Current focus:** Phase 05 — Venda Fracionada
 
 ## Current Position
 
-Phase: 04 (Devolução Completa) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
+Phase: 05 (Venda Fracionada) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-06-20
 
-Progress: [██████████] 100%
+Progress: [████████░░] 81%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████████] 100%
 | Phase 03 P02 | 5 | 2 tasks | 2 files |
 | Phase 04 P03 | 8 | 2 tasks | 1 files |
 | Phase 04-devolucao-completa P04 | 5min | 1 tasks | 1 files |
+| Phase 05 P01 | 3min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-01: paidAmount = crediarioPaid + otherPaid for crediário to prevent under-refund on split sales
 - [Phase ?]: 03-01: cashRefundOut/cancelledInstallmentIds placed on Sale — mirrors ReturnRecord retrocompat pattern
 - [Phase ?]: non-crediario-cash-path
+- [Phase ?]: 05-01: quantityStep returns 0.5 for fractional units; clampQuantityForUnit uses Math.floor; mil excluded from FRACTIONAL_UNITS
 
 ### Pending Todos
 
@@ -104,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-20T16:16:53.842Z
-Stopped at: Phase 03 Plan 01 complete — processRefund.ts pure module (EST-01/EST-02/EST-04)
+Last session: 2026-06-20T16:40:04.358Z
+Stopped at: Phase 05 Plan 01 complete — src/lib/units.ts fractional-unit helpers (FRAC-01)
 Resume file: None
