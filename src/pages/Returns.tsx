@@ -878,7 +878,11 @@ export default function Returns() {
           ) : (
             <div className="grid gap-4">
               {filteredHistory.map(ret => {
-                const isAbatimento = ret.abatedInstallments && ret.abatedInstallments.length > 0;
+                // WR-04 fix: detect abatimento by presence of abatedInstallments field (not .length > 0).
+                // An abatimento with zero actual abatements (all installments already zero-balance)
+                // correctly sets abatedInstallments = [] — the field is always set in the abatimento
+                // branch and never set in the haver branch, making its presence the reliable discriminant.
+                const isAbatimento = ret.abatedInstallments !== undefined;
                 return (
                   <Card key={ret.id} className={`hover:shadow-md transition-shadow ${ret.reversedAt ? 'opacity-60' : ''}`}>
                     <CardContent className="p-4">
