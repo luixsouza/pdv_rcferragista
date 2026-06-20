@@ -225,7 +225,11 @@ export default function POS() {
   const clientCreditLimit = client?.creditLimit || 0;
   const clientCreditUsed = selectedClient
     ? installments
-        .filter(i => i.clientId === selectedClient && (i.status === 'open' || i.status === 'overdue'))
+        .filter(i =>
+          i.clientId === selectedClient &&
+          getEffectiveStatus(i) !== 'paid' &&
+          getEffectiveStatus(i) !== 'cancelled'
+        )
         .reduce((sum, i) => sum + (i.amount - i.amountPaid - (i.discountApplied || 0)), 0)
     : 0;
   const clientCreditAvailable = Math.max(0, clientCreditLimit - clientCreditUsed);
