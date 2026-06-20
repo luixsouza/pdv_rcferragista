@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 01 Plan 02 complete — PDF dynamic height for receipt, refund receipt and quote"
-last_updated: "2026-06-20T14:18:00Z"
-last_activity: "2026-06-20 -- Completed 01-02 (dynamic-height PDFs: generateReceipt, generateRefundReceipt, generateQuotePDF)"
+status: verifying
+stopped_at: Phase 01 Plan 03 complete — processReturn.ts extraction (FND-02)
+last_updated: "2026-06-20T14:15:31.936Z"
+last_activity: 2026-06-20
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 8
+  completed_plans: 3
+  percent: 17
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-06-20)
 
 Phase: 01 (Fundação e PDF) — EXECUTING
 Plan: 3 of 3
-Status: Plans 01-01 and 01-02 complete; proceeding to 01-03 (processReturn.ts extraction)
-Last activity: 2026-06-20 -- Completed 01-02 (dynamic-height PDFs: generateReceipt, generateRefundReceipt, generateQuotePDF)
+Status: Phase complete — ready for verification
+Last activity: 2026-06-20
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -70,6 +70,8 @@ Recent decisions affecting current work:
 - 01-01: cancelledInstallmentIds optional on ReturnRecord — retrocompatible with electron-store
 - 01-02: PDF height = base + 8mm/item; Math.max(floor, estimated) preserves small-doc size
 - 01-02: Receipt base 140mm, refund 120mm, quote 100mm — validated at 30 and 25 items
+- 01-03: alreadyReturnedQtys passed as input parameter so processReturn is pure (no storage reads)
+- 01-03: roundCurrency applied per item total in processReturn for centavo correctness
 
 ### Pending Todos
 
@@ -92,5 +94,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-06-20
-Stopped at: Phase 01 Plan 02 complete — PDF dynamic height for receipt, refund receipt and quote
+Stopped at: Phase 01 Plan 03 complete — processReturn.ts extraction (FND-02)
 Resume file: None

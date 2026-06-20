@@ -8,7 +8,7 @@
 ### Fundação (Foundation)
 
 - [x] **FND-01**: Existe um helper `roundCurrency()` (em `src/lib/formatters.ts`) usado em todos os cálculos de moeda (parcelas, totais de carrinho, totais de devolução) para evitar erros de ponto flutuante
-- [ ] **FND-02**: A lógica de devolução é centralizada em um módulo único (`src/lib/processReturn.ts`) e consumida por Vendas, Devoluções e PDV, eliminando a duplicação
+- [x] **FND-02**: A lógica de devolução é centralizada em um módulo único (`src/lib/processReturn.ts`) e consumida por Vendas, Devoluções e PDV, eliminando a duplicação
 - [x] **FND-03**: O tipo `ReturnRecord` registra as parcelas canceladas (`cancelledInstallmentIds`) e o tipo `SaleItem` suporta quantidade fracionada, mantendo retrocompatibilidade com dados já gravados
 
 ### PDF (Documentos não fiscais existentes)
@@ -78,7 +78,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FND-01 | Phase 1 | Complete |
-| FND-02 | Phase 1 | Pending |
+| FND-02 | Phase 1 | Complete |
 | FND-03 | Phase 1 | Complete |
 | PDF-01 | Phase 1 | Pending |
 | PDF-02 | Phase 1 | Pending |

@@ -12,7 +12,7 @@ Este milestone corrige bugs financeiros críticos do crediário (haver indevido,
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Fundação e PDF** - Helpers de arredondamento, extração de lógica de devolução, ajustes de tipos retrocompatíveis e correção de altura dinâmica dos PDFs existentes
+- [x] **Phase 1: Fundação e PDF** - Helpers de arredondamento, extração de lógica de devolução, ajustes de tipos retrocompatíveis e correção de altura dinâmica dos PDFs existentes (completed 2026-06-20)
 - [ ] **Phase 2: Crediário** - Visibilidade aprimorada de parcelas, identificação correta de vencidas e cobrança explícita de juros
 - [ ] **Phase 3: Estorno Correto** - Estorno de crediário sem haver indevido, cancelamento automático de parcelas e proteção contra double restock
 - [ ] **Phase 4: Devolucao Completa** - Devolução pelo PDV, vendas sem cliente, cadastro inline, modalidades (haver / abatimento de débito) e reversão consistente
@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — roundCurrency helper (FND-01) + ReturnRecord/SaleItem type changes (FND-03) + arredondamento nas parcelas/carrinho do POS
 - [x] 01-02-PLAN.md — Altura dinâmica dos PDFs de cupom e orçamento (PDF-01, PDF-02)
-- [ ] 01-03-PLAN.md — Extração de src/lib/processReturn.ts puro com paridade comportamental, consumido por Sales e Returns (FND-02)
+- [x] 01-03-PLAN.md — Extração de src/lib/processReturn.ts puro com paridade comportamental, consumido por Sales e Returns (FND-02)
 
 ### Phase 2: Crediário
 **Goal**: O operador enxerga o estado real do crediário de cada cliente — saldo, situação das parcelas e juros — e consegue cobrar juros de forma explícita
@@ -104,7 +104,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fundação e PDF | 2/3 | In progress | - |
+| 1. Fundação e PDF | 3/3 | Complete   | 2026-06-20 |
 | 2. Crediário | 0/? | Not started | - |
 | 3. Estorno Correto | 0/? | Not started | - |
 | 4. Devolucao Completa | 0/? | Not started | - |
