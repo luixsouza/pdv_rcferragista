@@ -209,8 +209,18 @@ export async function generateNFCe(sale: Sale, client?: Client, products?: Produ
     });
   } else {
     const label = paymentLabels[sale.paymentMethod] || sale.paymentMethod;
-    rowText(doc, `Forma de Pagamento: ${label}`, formatCurrency(sale.total), y);
+    const displayAmount = sale.paymentMethod === 'crediario' && sale.entryAmount != null
+      ? sale.entryAmount
+      : sale.total;
+    rowText(doc, `Forma de Pagamento: ${label}`, formatCurrency(displayAmount), y);
     y += 4;
+    if (sale.paymentMethod === 'crediario' && sale.entryAmount != null) {
+      const financed = sale.total - sale.entryAmount;
+      if (financed > 0) {
+        rowText(doc, '  Financiado (crediário):', formatCurrency(financed), y);
+        y += 4;
+      }
+    }
   }
   y += 1;
 
