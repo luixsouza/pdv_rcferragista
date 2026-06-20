@@ -37,7 +37,7 @@ export async function generateQrDataUrl(text: string): Promise<string> {
  */
 export async function generateBarcodeDataUrl(text: string): Promise<string> {
   const canvas = document.createElement('canvas');
-  bwipjs.toCanvas(canvas, {
+  await bwipjs.toCanvas(canvas, {
     bcid: 'code128',
     text,
     scale: 2,
