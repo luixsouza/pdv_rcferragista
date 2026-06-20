@@ -77,38 +77,38 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 | TBD | Pending |
-| FND-02 | TBD | Pending |
-| FND-03 | TBD | Pending |
-| PDF-01 | TBD | Pending |
-| PDF-02 | TBD | Pending |
-| CRED-01 | TBD | Pending |
-| CRED-02 | TBD | Pending |
-| CRED-03 | TBD | Pending |
-| EST-01 | TBD | Pending |
-| EST-02 | TBD | Pending |
-| EST-03 | TBD | Pending |
-| EST-04 | TBD | Pending |
-| DEV-01 | TBD | Pending |
-| DEV-02 | TBD | Pending |
-| DEV-03 | TBD | Pending |
-| DEV-04 | TBD | Pending |
-| DEV-05 | TBD | Pending |
-| DEV-06 | TBD | Pending |
-| DEV-07 | TBD | Pending |
-| FRAC-01 | TBD | Pending |
-| FRAC-02 | TBD | Pending |
-| FRAC-03 | TBD | Pending |
-| FRAC-04 | TBD | Pending |
-| FISC-01 | TBD | Pending |
-| FISC-02 | TBD | Pending |
-| FISC-03 | TBD | Pending |
+| FND-01 | Phase 1 | Pending |
+| FND-02 | Phase 1 | Pending |
+| FND-03 | Phase 1 | Pending |
+| PDF-01 | Phase 1 | Pending |
+| PDF-02 | Phase 1 | Pending |
+| CRED-01 | Phase 2 | Pending |
+| CRED-02 | Phase 2 | Pending |
+| CRED-03 | Phase 2 | Pending |
+| EST-01 | Phase 3 | Pending |
+| EST-02 | Phase 3 | Pending |
+| EST-03 | Phase 3 | Pending |
+| EST-04 | Phase 3 | Pending |
+| DEV-01 | Phase 4 | Pending |
+| DEV-02 | Phase 4 | Pending |
+| DEV-03 | Phase 4 | Pending |
+| DEV-04 | Phase 4 | Pending |
+| DEV-05 | Phase 4 | Pending |
+| DEV-06 | Phase 4 | Pending |
+| DEV-07 | Phase 4 | Pending |
+| FRAC-01 | Phase 5 | Pending |
+| FRAC-02 | Phase 5 | Pending |
+| FRAC-03 | Phase 5 | Pending |
+| FRAC-04 | Phase 5 | Pending |
+| FISC-01 | Phase 6 | Pending |
+| FISC-02 | Phase 6 | Pending |
+| FISC-03 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 0 (preenchido pelo roadmap)
-- Unmapped: 26 ⚠️ (resolvido na criação do roadmap)
+- Mapped to phases: 26 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-20*
-*Last updated: 2026-06-20 after initialization*
+*Last updated: 2026-06-20 after roadmap creation*
