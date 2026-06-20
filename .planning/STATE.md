@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 01 Plan 03 complete — processReturn.ts extraction (FND-02)
-last_updated: "2026-06-20T14:50:59.398Z"
+status: executing
+stopped_at: Phase 03 Plan 01 complete — processRefund.ts pure module (EST-01/EST-02/EST-04)
+last_updated: "2026-06-20T15:18:51.091Z"
 last_activity: 2026-06-20
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
   percent: 33
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Core value:** O lojista gere vendas, crediário e devoluções com valores financeiros corretos (sem haver indevido nem parcelas fantasmas) e imprime documentos completos e legíveis.
-**Current focus:** Phase 02 — Crediário
+**Current focus:** Phase 03 — Estorno Correto
 
 ## Current Position
 
-Phase: 02 (Crediário) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
+Phase: 03 (Estorno Correto) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-06-20
 
-Progress: [██████████] 100%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 02-credi-rio P01 | 8 | 3 tasks | 3 files |
 | Phase 02-credi-rio P02 | 12 | 2 tasks | 1 files |
 | Phase 02-credi-rio P03 | 15 | 2 tasks | 1 files |
+| Phase 03-estorno-correto P01 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - 01-02: Receipt base 140mm, refund 120mm, quote 100mm — validated at 30 and 25 items
 - 01-03: alreadyReturnedQtys passed as input parameter so processReturn is pure (no storage reads)
 - 01-03: roundCurrency applied per item total in processReturn for centavo correctness
+- [Phase ?]: 03-01: crediarioPaid from installment.amountPaid sum (ground truth), not stale sale.crediarioPaid
+- [Phase ?]: 03-01: paidAmount = crediarioPaid + otherPaid for crediário to prevent under-refund on split sales
+- [Phase ?]: 03-01: cashRefundOut/cancelledInstallmentIds placed on Sale — mirrors ReturnRecord retrocompat pattern
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-20T14:50:59.380Z
-Stopped at: Phase 01 Plan 03 complete — processReturn.ts extraction (FND-02)
+Last session: 2026-06-20T15:18:51.070Z
+Stopped at: Phase 03 Plan 01 complete — processRefund.ts pure module (EST-01/EST-02/EST-04)
 Resume file: None

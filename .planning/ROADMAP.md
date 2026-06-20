@@ -63,7 +63,7 @@ Plans:
   4. Estornar uma venda que já teve devolução parcial anterior restaura ao estoque apenas a quantidade que ainda não havia sido devolvida (sem double restock)
 **Plans**: 2 plans
 Plans:
-- [ ] 03-01-PLAN.md — Módulo puro src/lib/processRefund.ts (haver capping EST-01, conjunto de cancelamento de parcelas EST-02, restauração de estoque sem double restock EST-04) + campo Sale.cashRefundOut? (EST-01, EST-02, EST-04)
+- [x] 03-01-PLAN.md — Módulo puro src/lib/processRefund.ts (haver capping EST-01, conjunto de cancelamento de parcelas EST-02, restauração de estoque sem double restock EST-04) + campo Sale.cashRefundOut? (EST-01, EST-02, EST-04)
 - [ ] 03-02-PLAN.md — Wiring de handleRefund + diálogo operador haver-vs-dinheiro (EST-03) em Sales.tsx + reflexo da saída de caixa no fechamento de caixa (Reports.tsx) (EST-01, EST-02, EST-03, EST-04)
 
 ### Phase 4: Devolucao Completa
@@ -113,7 +113,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Fundação e PDF | 3/3 | Complete   | 2026-06-20 |
 | 2. Crediário | 3/3 | Complete   | 2026-06-20 |
-| 3. Estorno Correto | 0/2 | Not started | - |
+| 3. Estorno Correto | 1/2 | In Progress|  |
 | 4. Devolucao Completa | 0/? | Not started | - |
 | 5. Venda Fracionada | 0/? | Not started | - |
 | 6. Layout Fiscal | 0/? | Not started | - |

@@ -24,10 +24,10 @@
 
 ### Estorno de venda no crediário
 
-- [ ] **EST-01**: Ao estornar uma venda de crediário em que o cliente não pagou nada, o sistema NÃO gera haver — apenas cancela a dívida
-- [ ] **EST-02**: Ao estornar/devolver totalmente uma venda de crediário, todas as parcelas em aberto/vencidas vinculadas à venda são canceladas automaticamente
+- [x] **EST-01**: Ao estornar uma venda de crediário em que o cliente não pagou nada, o sistema NÃO gera haver — apenas cancela a dívida
+- [x] **EST-02**: Ao estornar/devolver totalmente uma venda de crediário, todas as parcelas em aberto/vencidas vinculadas à venda são canceladas automaticamente
 - [ ] **EST-03**: Ao estornar uma venda de crediário com valor já pago, o sistema pergunta ao operador se gera haver pelo valor pago ou devolve em dinheiro (saída de caixa)
-- [ ] **EST-04**: O estorno não restaura estoque em dobro quando a venda já teve devolução parcial anterior (corrige double restock)
+- [x] **EST-04**: O estorno não restaura estoque em dobro quando a venda já teve devolução parcial anterior (corrige double restock)
 
 ### Devolução
 
@@ -85,10 +85,10 @@
 | CRED-01 | Phase 2 | Complete |
 | CRED-02 | Phase 2 | Complete |
 | CRED-03 | Phase 2 | Complete |
-| EST-01 | Phase 3 | Pending |
-| EST-02 | Phase 3 | Pending |
+| EST-01 | Phase 3 | Complete |
+| EST-02 | Phase 3 | Complete |
 | EST-03 | Phase 3 | Pending |
-| EST-04 | Phase 3 | Pending |
+| EST-04 | Phase 3 | Complete |
 | DEV-01 | Phase 4 | Pending |
 | DEV-02 | Phase 4 | Pending |
 | DEV-03 | Phase 4 | Pending |
