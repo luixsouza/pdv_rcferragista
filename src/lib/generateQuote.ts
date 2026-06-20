@@ -6,10 +6,17 @@ import { getStoreSettings } from '@/lib/storeInfo';
 
 export function generateQuotePDF(quote: Quote) {
   const store = getStoreSettings();
+  // Pre-calculate page height to avoid clipping totals/footer for large quotes (BUG-3).
+  // Base of 100mm covers: header, CNPJ, address, city, phone, title, separators,
+  // date, expiration, number, client block, items header, totals block, and footer.
+  // Each item uses 3mm (name) + 5mm (qty/total) = 8mm.
+  const quoteBase = 100;
+  const perItem = 8;
+  const estimatedHeight = quoteBase + (quote.items.length * perItem);
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [80, 200]
+    format: [80, Math.max(200, estimatedHeight)]
   });
 
   const pageWidth = 80;
