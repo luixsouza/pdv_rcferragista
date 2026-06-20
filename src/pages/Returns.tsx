@@ -237,11 +237,21 @@ export default function Returns() {
       // Persist abatedMap on returnRecord for DEV-07 reversal
       returnRecord.abatedInstallments = abResult.abatedMap;
 
-      // BUG-2 (abatimento branch): also cancel open/overdue on full return
+      // BUG-2 / CR-03 fix (abatimento branch): cancel open/overdue on full return,
+      // but ONLY those that abatement did NOT already pay (status !== 'paid' after abatement).
+      // Without this guard, the merge step overwrites abatement-paid installments to 'cancelled',
+      // creating an audit mismatch (CreditPayment says 'abatimento', installment says 'cancelled').
       if (cancelledInstallmentIds.length > 0) {
-        // Merge: first apply abatement updates, then cancel open/overdue
+        // Collect ids that abatement just moved to 'paid' so we can skip them in cancellation.
+        const abatedAndPaidIds = new Set(
+          abResult.updatedInstallments
+            .filter(i => cancelledInstallmentIds.includes(i.id) && i.status === 'paid')
+            .map(i => i.id)
+        );
         const afterAbatement = abResult.updatedInstallments.map(inst =>
-          cancelledInstallmentIds.includes(inst.id) ? { ...inst, status: 'cancelled' as const } : inst
+          cancelledInstallmentIds.includes(inst.id) && !abatedAndPaidIds.has(inst.id)
+            ? { ...inst, status: 'cancelled' as const }
+            : inst
         );
         setInstallments(afterAbatement);
       } else {
