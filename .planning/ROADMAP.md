@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Fundação e PDF** - Helpers de arredondamento, extração de lógica de devolução, ajustes de tipos retrocompatíveis e correção de altura dinâmica dos PDFs existentes (completed 2026-06-20)
 - [x] **Phase 2: Crediário** - Visibilidade aprimorada de parcelas, identificação correta de vencidas e cobrança explícita de juros (completed 2026-06-20)
 - [x] **Phase 3: Estorno Correto** - Estorno de crediário sem haver indevido, cancelamento automático de parcelas e proteção contra double restock (completed 2026-06-20)
-- [ ] **Phase 4: Devolucao Completa** - Devolução pelo PDV, vendas sem cliente, cadastro inline, modalidades (haver / abatimento de débito) e reversão consistente
+- [x] **Phase 4: Devolucao Completa** - Devolução pelo PDV, vendas sem cliente, cadastro inline, modalidades (haver / abatimento de débito) e reversão consistente (completed 2026-06-20)
 - [ ] **Phase 5: Venda Fracionada** - Quantidade decimal no PDV, orçamento e cadastro de produtos para unidades de medida (mt, kg, lt, m²)
 - [ ] **Phase 6: Layout Fiscal** - PDFs com layout DANFE-NFCe (80mm) e DANFE-NFe (A4), completos e com disclaimer de não-autorização
 
@@ -81,7 +81,7 @@ Plans:
 - [x] 04-01-PLAN.md — Upgrade de src/lib/processReturn.ts: haver capping (DEV-04), conjunto cancelledInstallmentIds e função pura processAbatement (DEV-05) + CreditPayment.type 'abatimento' (DEV-04, DEV-05)
 - [x] 04-02-PLAN.md — Returns.tsx: modalidade haver/abatimento, eligibleSales com crediario_pending, cancelamento de parcelas e reversão consistente (DEV-04, DEV-05, DEV-06, DEV-07)
 - [x] 04-03-PLAN.md — POS.tsx: entrada de devolução pelo PDV, vendas sem cliente e cadastro/associação inline de cliente (DEV-01, DEV-02, DEV-03, DEV-04)
-- [ ] 04-04-PLAN.md — Sales.tsx: consistência do caminho de devolução com o capping + cancelamento de parcelas (DEV-04, DEV-06)
+- [x] 04-04-PLAN.md — Sales.tsx: consistência do caminho de devolução com o capping + cancelamento de parcelas (DEV-04, DEV-06)
 **UI hint**: yes
 
 ### Phase 5: Venda Fracionada
@@ -119,6 +119,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Fundação e PDF | 3/3 | Complete   | 2026-06-20 |
 | 2. Crediário | 3/3 | Complete   | 2026-06-20 |
 | 3. Estorno Correto | 2/2 | Complete   | 2026-06-20 |
-| 4. Devolucao Completa | 3/4 | In Progress|  |
+| 4. Devolucao Completa | 4/4 | Complete   | 2026-06-20 |
 | 5. Venda Fracionada | 0/? | Not started | - |
 | 6. Layout Fiscal | 0/? | Not started | - |
