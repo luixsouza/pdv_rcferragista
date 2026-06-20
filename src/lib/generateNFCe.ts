@@ -42,7 +42,7 @@ const CENTER = PAGE_WIDTH / 2;
 // 164 mm base + 8 mm per item; Math.max(250, ...) ensures a sensible minimum
 // for small sales so the cupom is never shorter than a standard receipt.
 function calcHeight(itemCount: number): number {
-  return Math.max(250, 164 + itemCount * 8);
+  return Math.max(175, 164 + itemCount * 8);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
