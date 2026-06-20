@@ -117,11 +117,11 @@ export default function POS() {
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
 
-  const finalDiscountValue = isPercentage
+  const finalDiscountValue = roundCurrency(isPercentage
     ? (subtotal * discountValue) / 100
-    : discountValue;
+    : discountValue);
 
-  const total = Math.max(0, subtotal - finalDiscountValue);
+  const total = Math.max(0, roundCurrency(subtotal - finalDiscountValue));
 
   const client = clients.find(c => c.id === selectedClient);
   const clientStoreCredit = client?.storeCredit || 0;
