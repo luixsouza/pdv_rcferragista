@@ -129,17 +129,38 @@ export function processReturn(input: ProcessReturnInput): ProcessReturnResult {
   if (!hasClient) {
     creditGenerated = 0;
   } else if (isCrediarioSale) {
+    // CR-02 fix: split-payment sales must count the non-crediário (cash/card/pix/store_credit)
+    // portion as already paid — it was settled at point-of-sale.
     // Ground-truth: sum installment.amountPaid for this sale (never stale sale.crediarioPaid).
     const saleInstallments = installments.filter(i => i.saleId === sale.id);
+
+    // Non-crediário portion: sum of payment entries that are NOT crediário (all paid at sale time).
+    // store_credit is also treated as "fully paid" — it was real value exchanged.
+    const cashPortion = roundCurrency(
+      (sale.paymentEntries ?? [])
+        .filter(e => e.method !== 'crediario')
+        .reduce((s, e) => s + e.amount, 0)
+    );
+    const crediarioPortion = roundCurrency(Math.max(0, sale.total - cashPortion));
     const crediarioPaidSoFar = roundCurrency(
       saleInstallments.reduce((sum, i) => sum + i.amountPaid, 0)
     );
-    const paidProportion = sale.total > 0 ? crediarioPaidSoFar / sale.total : 0;
-    // DEV-04: haver = min(totalRefunded, totalRefunded × paidProportion) — zero-paid → 0.
-    creditGenerated = roundCurrency(Math.min(totalRefunded, totalRefunded * paidProportion));
+    // paidProportion for the crediário slice only (0..1)
+    const crediarioProportion = crediarioPortion > 0 ? Math.min(1, crediarioPaidSoFar / crediarioPortion) : 0;
+
+    // Return value attributed to each payment slice (proportional to original split)
+    const crediarioShare = sale.total > 0
+      ? roundCurrency((crediarioPortion / sale.total) * totalRefunded)
+      : 0;
+    const cashShare = roundCurrency(totalRefunded - crediarioShare);
+
+    // Cash share is always fully credited (paid at sale time).
+    // Crediário share is capped by the proportion actually paid.
+    // DEV-04: zero-paid crediário → crediarioShare contribution = 0.
+    creditGenerated = roundCurrency(cashShare + crediarioShare * crediarioProportion);
   } else {
-    // Cash/card/pix sale: generate haver = returnTotal (existing correct behavior).
-    creditGenerated = hasClient ? totalRefunded : 0;
+    // Cash/card/pix sale with client: generate haver = totalRefunded.
+    creditGenerated = totalRefunded;
   }
 
   // -- allItemsReturned --------------------------------------------------------
